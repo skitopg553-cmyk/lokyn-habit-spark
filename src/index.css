@@ -101,6 +101,55 @@
   100% { transform: rotate(0deg); }
 }
 
+@keyframes gauge-draw {
+  from { stroke-dasharray: 0 125.6; }
+}
+
+@keyframes count-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bar-grow {
+  from { height: 0; }
+}
+
+@keyframes avatar-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0px hsl(18 100% 56% / 0.4); }
+  50% { box-shadow: 0 0 15px hsl(18 100% 56% / 0.6); }
+}
+
+@keyframes record-pulse {
+  0%, 100% { border-color: #eab308; box-shadow: 0 0 0px rgba(234,179,8,0.3); }
+  50% { border-color: #fbbf24; box-shadow: 0 0 12px rgba(234,179,8,0.4); }
+}
+
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheet-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes flash-green {
+  0% { background-color: hsl(var(--success)); }
+  100% { background-color: hsl(var(--primary)); }
+}
+
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
