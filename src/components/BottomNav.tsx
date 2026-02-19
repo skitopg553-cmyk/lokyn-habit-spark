@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
 
 const tabs = [
-  { icon: "home", label: "Home", path: "/", fill: true },
-  { icon: "checklist", label: "Habits", path: "/habits", fill: true },
+  { icon: "home", label: "Accueil", path: "/", fill: true },
+  { icon: "checklist", label: "Habitudes", path: "/habits", fill: true },
   { icon: "bar_chart", label: "Stats", path: "/stats", fill: false },
-  { icon: "person", label: "Profile", path: "/profile", fill: false },
+  { icon: "group", label: "Social", path: "/social", fill: false },
+  { icon: "person", label: "Profil", path: "/profile", fill: false },
 ];
 
 const BottomNav = () => {
