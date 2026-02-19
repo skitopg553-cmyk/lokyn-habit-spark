@@ -120,11 +120,13 @@ export function useCompleteHabit(onRefresh: () => void) {
 
     await supabase.from("completions").insert({ habit_id: habitId, date: dateStr } as any);
 
-    // Update XP
+    // Update XP + niveau
     const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
     if (habit) {
       const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
-      await supabase.from("user_profile").update({ xp_total: (profile?.xp_total || 0) + habit.xp_estime } as any).eq("id", "local_user");
+      const newXp = (profile?.xp_total || 0) + habit.xp_estime;
+      const newNiveau = Math.floor(newXp / 100) + 1;
+      await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
     }
 
     await updateStreak();
