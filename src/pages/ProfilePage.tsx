@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
+import { useUserProfile, useTodayHabits } from "@/hooks/useHabits";
+import lokynColere from "@/assets/lokyn-colere.png";
 
 const objectives = ["Fitness", "Études", "Nutrition"];
 
@@ -30,6 +32,8 @@ const customizationItems: Record<string, { name: string; icon: string; unlocked:
 };
 
 const ProfilePage = () => {
+  const { profile } = useUserProfile();
+  const { habits } = useTodayHabits();
   const [objectives_, setObjectives] = useState(objectives);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [showSheet, setShowSheet] = useState(false);
@@ -98,25 +102,25 @@ const ProfilePage = () => {
       >
         <div className="relative mb-6" onClick={handleAvatarTap}>
           <div
-            className="w-[180px] h-[180px] rounded-full bg-surface border-4 border-primary flex items-center justify-center overflow-hidden cursor-pointer text-7xl select-none"
+            className="w-[180px] h-[180px] rounded-full bg-surface border-4 border-primary flex items-center justify-center overflow-hidden cursor-pointer select-none"
             style={{
               animation: "avatar-glow-pulse 3s ease-in-out infinite",
               transform: avatarBounce ? "scale(1.05)" : "scale(1)",
               transition: "transform 300ms cubic-bezier(0.68,-0.55,0.27,1.55)",
             }}
           >
-            👤
+            <img src={lokynColere} alt="Lokyn" className="w-32 h-32 object-contain" style={{ filter: "drop-shadow(0 4px 12px rgba(255,107,43,0.3))" }} />
           </div>
           <div className="absolute bottom-2 right-2 bg-primary text-primary-foreground rounded-full p-2 border-4 border-background">
             <span className="material-symbols-outlined text-sm block fill-1">verified</span>
           </div>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Alex Martin</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">{profile?.prenom || "Alex"}</h1>
         <div
           className="bg-primary/20 text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-6 border border-primary/30"
           style={{ animation: "slide-up-fade 300ms ease-out 200ms both" }}
         >
-          Niveau 4 — En progression
+          Niveau {profile?.niveau || 1} — {(profile?.niveau || 1) >= 10 ? "Élite" : (profile?.niveau || 1) >= 5 ? "En progression" : "Débutant"}
         </div>
         <button
           onClick={handleOpenSheet}
@@ -131,9 +135,9 @@ const ProfilePage = () => {
       <section className="px-4 mb-8">
         <div className="grid grid-cols-3 gap-3">
           {[
-            { emoji: "🔥", value: "7", sub1: "Jours", sub2: "Streak" },
-            { emoji: "✅", value: "127", sub1: "Faites", sub2: "Habitudes" },
-            { emoji: "👥", value: "8", sub1: "", sub2: "Amis" },
+            { emoji: "🔥", value: String(profile?.streak_actuel || 0), sub1: "Jours", sub2: "Streak" },
+            { emoji: "✅", value: String(profile?.xp_total || 0), sub1: "XP", sub2: "Total" },
+            { emoji: "⚡", value: `Niv. ${profile?.niveau || 1}`, sub1: "", sub2: "Niveau" },
           ].map((stat, i) => (
             <div
               key={i}

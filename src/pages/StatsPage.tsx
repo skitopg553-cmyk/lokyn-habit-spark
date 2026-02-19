@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import BottomNav from "../components/BottomNav";
+import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
+import { supabase } from "@/integrations/supabase/client";
+import lokynColere from "@/assets/lokyn-colere.png";
 
 const periods = ["7J", "30J", "Tout"] as const;
 
 const timelineCards = [
-  { date: "12 Mai", status: "En forme", color: "success" as const },
-  { date: "11 Mai", status: "En galère", color: "danger" as const },
-  { date: "10 Mai", status: "Au sommet", color: "warning" as const },
+  { date: "12 Mai", status: "En forme", color: "success" as const, img: lokynColere },
+  { date: "11 Mai", status: "En galère", color: "danger" as const, img: lokynColere },
+  { date: "10 Mai", status: "Au sommet", color: "warning" as const, img: lokynColere },
 ];
 
-const disciplineData7J = [90, 85, 60, 30, 95, 55, 88];
-const disciplineData30J = [70, 65, 80, 45, 90, 55, 75];
-const disciplineDataAll = [75, 72, 68, 60, 85, 62, 80];
 const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
 
 const achievements = [
@@ -52,12 +52,49 @@ const StatsPage = () => {
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const scoreRef = useRef<number | null>(null);
 
-  const score = 72;
-  const streak = 7;
-  const record = 7;
-  const isRecord = streak === record;
+  const { profile } = useUserProfile();
+  const streak = profile?.streak_actuel || 0;
+  const record = profile?.streak_record || 0;
+  const isRecord = streak > 0 && streak === record;
+  const score = Math.min(
+    Math.round(
+      (streak * 5) +
+      (profile?.xp_total ? Math.min(profile.xp_total / 10, 50) : 0)
+    ),
+    100
+  );
 
-  const disciplineData = activePeriod === "7J" ? disciplineData7J : activePeriod === "30J" ? disciplineData30J : disciplineDataAll;
+  // Discipline chart - real data
+  const weekDays = getWeekDays();
+  const weekDateStrs = weekDays.map(d => d.dateStr);
+  const [disciplineReal, setDisciplineReal] = useState<number[]>([0,0,0,0,0,0,0]);
+
+  useEffect(() => {
+    async function loadWeekStats() {
+      const { data: habits } = await supabase
+        .from("habits")
+        .select("id")
+        .eq("user_id", "local_user")
+        .eq("actif", true) as any;
+
+      const totalHabits = habits?.length || 1;
+
+      const { data: completions } = await supabase
+        .from("completions")
+        .select("date")
+        .in("date", weekDateStrs) as any;
+
+      const result = weekDateStrs.map(dateStr => {
+        const count = (completions || []).filter((c: any) => c.date === dateStr).length;
+        return Math.round((count / totalHabits) * 100);
+      });
+
+      setDisciplineReal(result);
+    }
+    loadWeekStats();
+  }, [weekDateStrs.join(",")]);
+
+  const disciplineData = disciplineReal;
 
   // Trigger animations on mount
   useEffect(() => {
@@ -69,7 +106,6 @@ const StatsPage = () => {
   // Score counter animation
   useEffect(() => {
     if (!gaugeAnimated) return;
-    let start = 0;
     const duration = 1000;
     const startTime = performance.now();
     const animate = (now: number) => {
@@ -84,7 +120,7 @@ const StatsPage = () => {
     };
     scoreRef.current = requestAnimationFrame(animate);
     return () => { if (scoreRef.current) cancelAnimationFrame(scoreRef.current); };
-  }, [gaugeAnimated]);
+  }, [gaugeAnimated, score]);
 
   const handlePeriodChange = useCallback((period: typeof periods[number]) => {
     if (period === activePeriod) return;
@@ -176,12 +212,12 @@ const StatsPage = () => {
                   }
                 >
                   <div
-                    className={`aspect-[3/4] rounded-lg flex items-center justify-center text-6xl ${
+                    className={`aspect-[3/4] rounded-lg flex items-center justify-center ${
                       card.color === "danger" ? "grayscale" : ""
                     }`}
                     style={{ backgroundColor: "hsl(var(--surface))" }}
                   >
-                    {card.color === "success" ? "💪" : card.color === "danger" ? "😩" : "🏆"}
+                    <img src={card.img} alt="Lokyn" className="w-24 h-24 object-contain" style={{ filter: "drop-shadow(0 4px 12px rgba(255,107,43,0.3))" }} />
                   </div>
                   <div className="px-2 pb-2 pt-1">
                     <p className="text-sm font-bold">{card.date}</p>
