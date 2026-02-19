@@ -14,7 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      completions: {
+        Row: {
+          date: string
+          habit_id: string
+          id: string
+          preuve_url: string | null
+          validated_at: string | null
+        }
+        Insert: {
+          date: string
+          habit_id: string
+          id?: string
+          preuve_url?: string | null
+          validated_at?: string | null
+        }
+        Update: {
+          date?: string
+          habit_id?: string
+          id?: string
+          preuve_url?: string | null
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "completions_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habits: {
+        Row: {
+          actif: boolean | null
+          categorie: string
+          date_creation: string | null
+          fois_par_semaine: number | null
+          frequence: string
+          heure_rappel: string | null
+          id: string
+          jours: string[] | null
+          nom: string
+          preuve_requise: boolean | null
+          user_id: string
+          xp_estime: number | null
+        }
+        Insert: {
+          actif?: boolean | null
+          categorie: string
+          date_creation?: string | null
+          fois_par_semaine?: number | null
+          frequence?: string
+          heure_rappel?: string | null
+          id?: string
+          jours?: string[] | null
+          nom: string
+          preuve_requise?: boolean | null
+          user_id?: string
+          xp_estime?: number | null
+        }
+        Update: {
+          actif?: boolean | null
+          categorie?: string
+          date_creation?: string | null
+          fois_par_semaine?: number | null
+          frequence?: string
+          heure_rappel?: string | null
+          id?: string
+          jours?: string[] | null
+          nom?: string
+          preuve_requise?: boolean | null
+          user_id?: string
+          xp_estime?: number | null
+        }
+        Relationships: []
+      }
+      user_profile: {
+        Row: {
+          id: string
+          niveau: number | null
+          objectifs: string[] | null
+          prenom: string | null
+          streak_actuel: number | null
+          streak_record: number | null
+          xp_total: number | null
+        }
+        Insert: {
+          id?: string
+          niveau?: number | null
+          objectifs?: string[] | null
+          prenom?: string | null
+          streak_actuel?: number | null
+          streak_record?: number | null
+          xp_total?: number | null
+        }
+        Update: {
+          id?: string
+          niveau?: number | null
+          objectifs?: string[] | null
+          prenom?: string | null
+          streak_actuel?: number | null
+          streak_record?: number | null
+          xp_total?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
