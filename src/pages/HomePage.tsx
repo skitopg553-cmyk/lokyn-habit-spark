@@ -2,12 +2,15 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
 import StatBar from "../components/StatBar";
 import BottomNav from "../components/BottomNav";
+import lokynColere from "@/assets/lokyn-colere.png";
 
 const lokynMessages = [
   "Tu veux vraiment que je reste comme ça ?",
   "Je t'avais prévenu.",
   "Un effort. Juste un.",
   "...",
+  "Tu me fais honte.",
+  "Allez, bouge.",
 ];
 
 const habits = [
@@ -23,6 +26,7 @@ const HomePage = () => {
   const [lokynBounce, setLokynBounce] = useState(false);
   const [habitStates, setHabitStates] = useState(habits.map((h) => h.done));
   const [checkBounce, setCheckBounce] = useState<number | null>(null);
+  const [fabRotated, setFabRotated] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setBubbleVisible(true), 500);
@@ -105,10 +109,11 @@ const HomePage = () => {
                 boxShadow: "0 20px 60px rgba(255,107,43,0.3)",
               }}
             />
-            {/* Lokyn placeholder - angry orange mascot */}
-            <div className="relative z-10 w-48 h-48 rounded-full bg-primary flex items-center justify-center text-8xl select-none">
-              😠
-            </div>
+            <img
+              src={lokynColere}
+              alt="Lokyn"
+              className="relative z-10 w-48 h-48 object-contain select-none"
+            />
           </div>
 
           {/* Vitality Bars */}
@@ -166,8 +171,20 @@ const HomePage = () => {
         <a
           href="/habits/new"
           className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 pl-4 pr-6 py-4 rounded-full shadow-[0_8px_20px_hsl(18_100%_56%_/_0.4)] transition-transform active:scale-95"
+          onClick={() => {
+            setFabRotated(true);
+            setTimeout(() => setFabRotated(false), 150);
+          }}
         >
-          <span className="material-symbols-outlined font-bold">add</span>
+          <span
+            className="material-symbols-outlined font-bold"
+            style={{
+              transform: fabRotated ? "rotate(45deg)" : "rotate(0deg)",
+              transition: "transform 150ms ease-out",
+            }}
+          >
+            add
+          </span>
           <span className="font-bold text-sm uppercase tracking-wide">Ajouter preuve</span>
         </a>
       </div>
