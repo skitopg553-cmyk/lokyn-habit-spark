@@ -244,6 +244,55 @@ export async function applyXpDecay() {
     } as any)
     .eq("id", "local_user");
 }
+export async function applyXpDecay() {
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    return d.toISOString().split("T")[0];
+  });
+
+  const { data: completions } = await supabase
+    .from("completions")
+    .select("date")
+    .in("date", last7) as any;
+
+  const { data: profile } = await supabase
+    .from("user_profile")
+    .select("xp_total, niveau, last_decay_date")
+    .eq("id", "local_user")
+    .maybeSingle() as any;
+
+  if (!profile) return;
+  if (profile.last_decay_date === todayStr) return;
+
+  let inactiveDays = 0;
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const ds = d.toISOString().split("T")[0];
+    const hasActivity = (completions || []).some((c: any) => c.date === ds);
+    if (!hasActivity) inactiveDays++;
+    else break;
+  }
+
+  let decay = 0;
+  if (inactiveDays >= 7) decay = 100;
+  else if (inactiveDays >= 3) decay = 50;
+  else if (inactiveDays >= 1) decay = 20;
+
+  if (decay === 0) return;
+
+  const newXp = Math.max(0, (profile.xp_total || 0) - decay);
+  const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
+
+  await supabase
+    .from("user_profile")
+    .update({ xp_total: newXp, niveau: newNiveau, last_decay_date: todayStr } as any)
+    .eq("id", "local_user");
+}
 
 export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -262,8 +311,12 @@ export function useUserProfile() {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+  applyXpDecay().then(() => refresh());
+}, []);
+
+useEffect(() => {
+  refresh();
+}, [refresh]);
 
   return { profile, refresh };
 }
