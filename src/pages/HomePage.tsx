@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import confetti from "canvas-confetti";
-import StatBar from "../components/StatBar";
+// StatBar supprimé
 import BottomNav from "../components/BottomNav";
 import lokynColere from "@/assets/lokyn-colere.png";
-import { useTodayHabits, useCompleteHabit, useHomeStats, useUserProfile } from "@/hooks/useHabits";
+import { useTodayHabits, useCompleteHabit, useUserProfile } from "@/hooks/useHabits";
 
 const lokynMessages = [
   "Tu veux vraiment que je reste comme ça ?",
@@ -31,8 +31,10 @@ const HomePage = () => {
 
   const { habits, refresh } = useTodayHabits();
   const { complete, uncomplete } = useCompleteHabit(refresh);
-  const stats = useHomeStats(habits);
   const { profile } = useUserProfile();
+  const xpActuel = profile?.xp_total || 0;
+  const xpPourNiveauSuivant = (profile?.niveau || 1) * 100;
+  const xpPercent = Math.min(Math.round((xpActuel % 100)), 100);
 
   const hasPendingProof = habits.some((h) => h.preuve_requise && !h.completed);
 
@@ -123,10 +125,33 @@ const HomePage = () => {
           </div>
 
           {/* Vitality Bars */}
-          <div className="w-full max-w-sm px-6 mt-8 space-y-4">
-            <StatBar label="Énergie" value={stats.energie} delay={0} />
-            <StatBar label="Discipline" value={stats.discipline} delay={150} />
-            <StatBar label="Moral" value={stats.moral} delay={300} />
+          <div className="w-full max-w-sm px-6 mt-8">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+                  XP
+                </span>
+                <span className="text-xs font-bold text-primary">
+                  Niveau {profile?.niveau || 1}
+                </span>
+              </div>
+              <span className="text-xs font-bold text-primary">
+                {xpActuel % 100}/100
+              </span>
+            </div>
+            <div className="h-3 w-full bg-card rounded-full overflow-hidden border border-white/5">
+              <div
+                className="h-full bg-primary rounded-full transition-all ease-out"
+                style={{
+                  width: `${xpPercent}%`,
+                  transitionDuration: "800ms",
+                  boxShadow: "0 0 12px hsl(18 100% 56% / 0.6)",
+                }}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 text-right">
+              {100 - (xpActuel % 100)} XP avant le niveau suivant
+            </p>
           </div>
         </div>
 
