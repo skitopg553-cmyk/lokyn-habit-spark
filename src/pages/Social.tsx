@@ -1,5 +1,6 @@
 import { useState } from "react";
 import BottomNav from "../components/BottomNav";
+import lokynColere from "@/assets/lokyn-colere.png";
 
 const mockFriends = [
   {
@@ -109,8 +110,18 @@ const SocialPage = () => {
           >
             <div className="flex gap-3 mb-3">
               {/* Lokyn avatar placeholder */}
-              <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-xl shrink-0">
-                🐟
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 ${
+                friend.status === "en_forme"
+                  ? "border-success bg-success/10"
+                  : "border-destructive bg-destructive/10"
+              }`}>
+                <img
+                  src={lokynColere}
+                  alt="Lokyn"
+                  className={`w-10 h-10 object-contain ${
+                    friend.status === "en_galere" ? "grayscale opacity-60" : ""
+                  }`}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">

@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
+import { supabase } from "@/integrations/supabase/client";
 import { useTodayHabits, useCompleteHabit, getWeekDays, useDaysWithActivity } from "@/hooks/useHabits";
 
 const ICON_MAP: Record<string, { icon: string; color: string; bg: string }> = {
@@ -32,6 +34,17 @@ const HabitsPage = () => {
   const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+  const [longPressId, setLongPressId] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const deleteHabit = async (habitId: string) => {
+    await supabase
+      .from("habits")
+      .update({ actif: false } as any)
+      .eq("id", habitId);
+    refresh();
+    toast("Habitude supprimée.");
+  };
 
   const doneCount = habits.filter((h) => h.completed).length;
   const totalCount = habits.length;
@@ -185,9 +198,20 @@ const HabitsPage = () => {
                     ? `linear-gradient(to left, hsl(348 86% 61% / ${swipeProgress * 0.3}), transparent)`
                     : undefined,
               }}
-              onTouchStart={(e) => !habit.completed && handleTouchStart(e, habit.id)}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              onTouchStart={(e) => {
+                if (!habit.completed) handleTouchStart(e, habit.id);
+                longPressTimer.current = setTimeout(() => {
+                  setLongPressId(habit.id);
+                }, 600);
+              }}
+              onTouchMove={(e) => {
+                handleTouchMove(e);
+                if (longPressTimer.current) clearTimeout(longPressTimer.current);
+              }}
+              onTouchEnd={() => {
+                handleTouchEnd();
+                if (longPressTimer.current) clearTimeout(longPressTimer.current);
+              }}
             >
               {/* Swipe icons */}
               {swipingId === habit.id && swipeDir === "right" && (
@@ -251,6 +275,32 @@ const HabitsPage = () => {
           <span>Nouvelle habitude</span>
         </a>
       </div>
+
+      {longPressId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-white/10 rounded-2xl p-6 mx-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold mb-2">Supprimer cette habitude ?</h3>
+            <p className="text-muted-foreground text-sm mb-6">Lokyn va être déçu.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLongPressId(null)}
+                className="flex-1 py-3 rounded-xl bg-surface text-foreground font-semibold text-sm active:scale-95 transition-transform"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  deleteHabit(longPressId);
+                  setLongPressId(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-destructive text-white font-semibold text-sm active:scale-95 transition-transform"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

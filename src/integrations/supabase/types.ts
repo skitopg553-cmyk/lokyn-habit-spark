@@ -94,6 +94,7 @@ export type Database = {
       user_profile: {
         Row: {
           id: string
+          last_decay_date: string | null
           niveau: number | null
           objectifs: string[] | null
           prenom: string | null
@@ -103,6 +104,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          last_decay_date?: string | null
           niveau?: number | null
           objectifs?: string[] | null
           prenom?: string | null
@@ -112,6 +114,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          last_decay_date?: string | null
           niveau?: number | null
           objectifs?: string[] | null
           prenom?: string | null

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, useTodayHabits } from "@/hooks/useHabits";
+import { supabase } from "@/integrations/supabase/client";
 import lokynColere from "@/assets/lokyn-colere.png";
 
 const objectives = ["Fitness", "Études", "Nutrition"];
@@ -10,6 +11,7 @@ const settingsItems = [
   { icon: "notifications", label: "Notifications" },
   { icon: "lock", label: "Confidentialité" },
   { icon: "group", label: "Gérer mes amis" },
+  { icon: "edit", label: "Changer mon prénom" },
 ];
 
 const customizationCategories = ["Tenues", "Accessoires", "Décors"];
@@ -46,6 +48,21 @@ const ProfilePage = () => {
   const [showLogout, setShowLogout] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showPrenomEdit, setShowPrenomEdit] = useState(false);
+  const [newPrenom, setNewPrenom] = useState("");
+  const { refresh: refreshProfile } = useUserProfile();
+
+  const handleSavePrenom = async () => {
+    if (!newPrenom.trim()) return;
+    await supabase
+      .from("user_profile")
+      .update({ prenom: newPrenom.trim() } as any)
+      .eq("id", "local_user");
+    toast(`Prénom mis à jour : ${newPrenom.trim()}`);
+    setShowPrenomEdit(false);
+    setNewPrenom("");
+    refreshProfile();
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -200,6 +217,11 @@ const ProfilePage = () => {
             key={i}
             className="flex items-center justify-between py-4 group cursor-pointer border-b border-white/5"
             style={{ animation: `slide-up-fade 300ms ease-out ${i * 40}ms both` }}
+            onClick={() => {
+              if (item.label === "Changer mon prénom") {
+                setShowPrenomEdit(true);
+              }
+            }}
           >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center group-hover:bg-primary/10 transition-colors">
@@ -350,6 +372,37 @@ const ProfilePage = () => {
             >
               Sauvegarder
             </button>
+          </div>
+        </div>
+      )}
+
+      {showPrenomEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-white/10 rounded-2xl p-6 mx-6 w-full max-w-sm"
+            style={{ animation: "check-bounce 200ms ease-out both" }}
+          >
+            <h3 className="text-lg font-bold mb-4">Comment tu t'appelles ?</h3>
+            <input
+              className="w-full bg-background border border-white/10 rounded-xl p-4 text-foreground outline-none focus:border-primary mb-4"
+              placeholder="Ton prénom"
+              value={newPrenom}
+              onChange={(e) => setNewPrenom(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPrenomEdit(false)}
+                className="flex-1 py-3 rounded-xl bg-surface text-muted-foreground font-semibold text-sm active:scale-95 transition-transform"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSavePrenom}
+                className="flex-1 py-3 rounded-xl bg-primary text-white font-semibold text-sm active:scale-95 transition-transform"
+              >
+                Sauvegarder
+              </button>
+            </div>
           </div>
         </div>
       )}
