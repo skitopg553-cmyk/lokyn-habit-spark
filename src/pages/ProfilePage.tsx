@@ -12,6 +12,7 @@ const settingsItems = [
   { icon: "lock", label: "Confidentialité" },
   { icon: "group", label: "Gérer mes amis" },
   { icon: "edit", label: "Changer mon prénom" },
+  { icon: "refresh", label: "Revoir l'onboarding" },
 ];
 
 const customizationCategories = ["Tenues", "Accessoires", "Décors"];
@@ -218,10 +219,14 @@ const ProfilePage = () => {
             className="flex items-center justify-between py-4 group cursor-pointer border-b border-white/5"
             style={{ animation: `slide-up-fade 300ms ease-out ${i * 40}ms both` }}
             onClick={() => {
-              if (item.label === "Changer mon prénom") {
-                setShowPrenomEdit(true);
-              }
-            }}
+  if (item.label === "Changer mon prénom") {
+    setShowPrenomEdit(true);
+  }
+  if (item.label === "Revoir l'onboarding") {
+    localStorage.removeItem("onboarding_done");
+    window.location.href = "/onboarding";
+  }
+}}
           >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center group-hover:bg-primary/10 transition-colors">
