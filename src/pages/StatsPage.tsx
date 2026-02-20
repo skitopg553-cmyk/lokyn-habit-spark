@@ -3,13 +3,15 @@ import BottomNav from "../components/BottomNav";
 import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
 import lokynColere from "@/assets/lokyn-colere.png";
+import lokynForme from "@/assets/lokyn-forme.jpg";
+import lokynGalere from "@/assets/lokyn-galere.jpg";
 
 const periods = ["7J", "30J", "Tout"] as const;
 
 const timelineCards = [
-  { date: "12 Mai", status: "En forme", color: "success" as const, img: lokynColere },
-  { date: "11 Mai", status: "En galère", color: "danger" as const, img: lokynColere },
-  { date: "10 Mai", status: "Au sommet", color: "warning" as const, img: lokynColere },
+  { date: "12 Mai", status: "En forme", color: "success" as const, img: lokynForme },
+  { date: "11 Mai", status: "En galère", color: "danger" as const, img: lokynGalere },
+  { date: "10 Mai", status: "Au sommet", color: "warning" as const, img: lokynForme },
 ];
 
 const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
