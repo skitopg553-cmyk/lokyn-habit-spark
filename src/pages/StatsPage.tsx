@@ -219,7 +219,7 @@ const StatsPage = () => {
                     }`}
                     style={{ backgroundColor: "hsl(var(--surface))" }}
                   >
-                    <img src={card.img} alt="Lokyn" className="w-24 h-24 object-contain" style={{ filter: "drop-shadow(0 4px 12px rgba(255,107,43,0.3))" }} />
+                    <img src={card.img} alt="Lokyn" className="w-24 h-24 object-cover" style={{ filter: "drop-shadow(0 4px 12px rgba(255,107,43,0.3))" }} />
                   </div>
                   <div className="px-2 pb-2 pt-1">
                     <p className="text-sm font-bold">{card.date}</p>
