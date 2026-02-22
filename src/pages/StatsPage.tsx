@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import BottomNav from "../components/BottomNav";
-import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
+import { useUserProfile, useTodayHabits, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
 import lokynColere from "@/assets/lokyn-colere.png";
 import lokynForme from "@/assets/lokyn-forme.jpg";
@@ -65,13 +65,11 @@ const StatsPage = () => {
   const streak = profile?.streak_actuel || 0;
   const record = profile?.streak_record || 0;
   const isRecord = streak > 0 && streak === record;
-  const score = Math.min(
-    Math.round(
-      (streak * 5) +
-      (profile?.xp_total ? Math.min(profile.xp_total / 10, 50) : 0)
-    ),
-    100
-  );
+
+  const { habits: todayHabits } = useTodayHabits();
+  const score = todayHabits.length === 0
+    ? 0
+    : Math.round((todayHabits.filter(h => h.completed).length / todayHabits.length) * 100);
 
   // Discipline chart - real data
   const weekDays = getWeekDays();
@@ -86,16 +84,23 @@ const StatsPage = () => {
         .eq("user_id", "local_user")
         .eq("actif", true) as any;
 
-      const totalHabits = habits?.length || 1;
+      const habitIds = (habits || []).map((h: any) => h.id);
+      const totalHabits = habitIds.length;
+
+      if (totalHabits === 0) {
+        setDisciplineReal([0,0,0,0,0,0,0]);
+        return;
+      }
 
       const { data: completions } = await supabase
         .from("completions")
-        .select("date")
-        .in("date", weekDateStrs) as any;
+        .select("date, habit_id")
+        .in("date", weekDateStrs)
+        .in("habit_id", habitIds) as any;
 
       const result = weekDateStrs.map(dateStr => {
         const count = (completions || []).filter((c: any) => c.date === dateStr).length;
-        return Math.round((count / totalHabits) * 100);
+        return Math.min(Math.round((count / totalHabits) * 100), 100);
       });
 
       setDisciplineReal(result);
@@ -152,7 +157,7 @@ const StatsPage = () => {
     }
   }, []);
 
-  const gaugeStrokeDash = gaugeAnimated ? `${(score / 100) * 125.6} 125.6` : "0 125.6";
+  const gaugeStrokeDash = gaugeAnimated ? `${(score / 100) * 251.33} 251.33` : "0 251.33";
 
   return (
     <div className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-x-hidden pb-24">
@@ -292,7 +297,7 @@ const StatsPage = () => {
                 fill="none"
                 stroke="hsl(var(--surface))"
                 strokeWidth="8"
-                strokeDasharray="125.6 125.6"
+                strokeDasharray="251.33 0"
                 strokeLinecap="round"
               />
               <circle
@@ -309,7 +314,7 @@ const StatsPage = () => {
             </svg>
             <div className="text-center z-10">
               <span className="text-4xl font-bold">{displayScore}</span>
-              <span className="text-muted-foreground text-lg"> / 100</span>
+              <span className="text-muted-foreground text-lg">%</span>
             </div>
           </div>
           <p

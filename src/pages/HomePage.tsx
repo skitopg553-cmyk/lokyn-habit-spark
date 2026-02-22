@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
 // StatBar supprimé
 import BottomNav from "../components/BottomNav";
 import lokynColere from "@/assets/lokyn-colere.png";
-import { useTodayHabits, useCompleteHabit, useUserProfile } from "@/hooks/useHabits";
+import { useTodayHabits, useCompleteHabit, useUserProfile, Habit } from "@/hooks/useHabits";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const lokynMessages = [
   "Tu veux vraiment que je reste comme ça ?",
@@ -23,20 +25,27 @@ const ICON_MAP: Record<string, string> = {
   nutrition: "water_drop",
 };
 
+const fireConfetti = () =>
+  confetti({
+    particleCount: 4,
+    spread: 40,
+    origin: { y: 0.8 },
+    colors: ["#FF6B2B", "#ff8c57", "#ffb088", "#ff5500"],
+    scalar: 0.6,
+    gravity: 1.5,
+  });
+
 const HomePage = () => {
   const [message, setMessage] = useState(lokynMessages[0]);
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [lokynBounce, setLokynBounce] = useState(false);
-  const [fabRotated, setFabRotated] = useState(false);
+  const [proofModal, setProofModal] = useState<Habit | null>(null);
 
   const { habits, refresh } = useTodayHabits();
   const { complete, uncomplete } = useCompleteHabit(refresh);
   const { profile } = useUserProfile();
   const xpActuel = profile?.xp_total || 0;
-  const xpPourNiveauSuivant = (profile?.niveau || 1) * 100;
   const xpPercent = Math.min(Math.round((xpActuel % 100)), 100);
-
-  const hasPendingProof = habits.some((h) => h.preuve_requise && !h.completed);
 
   useEffect(() => {
     const timer = setTimeout(() => setBubbleVisible(true), 500);
@@ -51,19 +60,14 @@ const HomePage = () => {
   }, []);
 
   const handleCheckbox = useCallback(
-    (habit: (typeof habits)[0]) => {
+    (habit: Habit) => {
       if (habit.completed) {
         uncomplete(habit.id);
+      } else if (habit.preuve_requise) {
+        setProofModal(habit);
       } else {
-        complete(habit.id, habit.preuve_requise);
-        confetti({
-          particleCount: 4,
-          spread: 40,
-          origin: { y: 0.8 },
-          colors: ["#FF6B2B", "#ff8c57", "#ffb088", "#ff5500"],
-          scalar: 0.6,
-          gravity: 1.5,
-        });
+        complete(habit.id);
+        fireConfetti();
       }
     },
     [complete, uncomplete]
@@ -195,30 +199,44 @@ const HomePage = () => {
         </section>
       </main>
 
-      {/* FAB — only if pending proof */}
-      {hasPendingProof && (
-        <div className="fixed bottom-24 right-6 z-50">
-          <a
-            href="/habits/new"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 pl-4 pr-6 py-4 rounded-full shadow-[0_8px_20px_hsl(18_100%_56%_/_0.4)] transition-transform active:scale-95"
-            onClick={() => {
-              setFabRotated(true);
-              setTimeout(() => setFabRotated(false), 150);
-            }}
-          >
-            <span
-              className="material-symbols-outlined font-bold"
-              style={{
-                transform: fabRotated ? "rotate(45deg)" : "rotate(0deg)",
-                transition: "transform 150ms ease-out",
+      {/* Proof Modal */}
+      <Dialog open={!!proofModal} onOpenChange={(open) => { if (!open) setProofModal(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>📸 Preuve requise</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{proofModal?.nom}</p>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <button
+              className="w-full bg-primary text-primary-foreground font-bold py-3 px-4 rounded-xl transition-opacity hover:opacity-90"
+              onClick={() => {
+                toast("Fonctionnalité à venir.");
+                setProofModal(null);
               }}
             >
-              add
-            </span>
-            <span className="font-bold text-sm uppercase tracking-wide">Ajouter preuve</span>
-          </a>
-        </div>
-      )}
+              📸 Ajouter une preuve
+            </button>
+            <button
+              className="w-full bg-success text-white font-bold py-3 px-4 rounded-xl transition-opacity hover:opacity-90"
+              onClick={() => {
+                if (proofModal) {
+                  complete(proofModal.id);
+                  fireConfetti();
+                }
+                setProofModal(null);
+              }}
+            >
+              ✓ Valider sans preuve
+            </button>
+            <button
+              className="w-full bg-surface text-muted-foreground font-bold py-3 px-4 rounded-xl transition-opacity hover:opacity-90"
+              onClick={() => setProofModal(null)}
+            >
+              Annuler
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <BottomNav />
     </div>

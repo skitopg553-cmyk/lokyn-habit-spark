@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 
 const tabs = [
-  { icon: "home", label: "Accueil", path: "/", fill: true },
+  { icon: "home", label: "Accueil", path: "/home", fill: true },
   { icon: "checklist", label: "Habitudes", path: "/habits", fill: true },
   { icon: "bar_chart", label: "Stats", path: "/stats", fill: false },
   { icon: "group", label: "Social", path: "/social", fill: false },

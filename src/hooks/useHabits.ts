@@ -101,7 +101,7 @@ export function useTodayHabits(selectedDate?: string) {
 }
 
 export function useCompleteHabit(onRefresh: () => void) {
-  const complete = useCallback(async (habitId: string, preuveRequise: boolean) => {
+  const complete = useCallback(async (habitId: string) => {
     const dateStr = toDateStr(new Date());
 
     const { data: existing } = await supabase
@@ -112,11 +112,6 @@ export function useCompleteHabit(onRefresh: () => void) {
       .maybeSingle() as any;
 
     if (existing) return;
-
-    if (preuveRequise) {
-      toast("📸 Preuve requise — fonctionnalité à venir.");
-      return;
-    }
 
     await supabase.from("completions").insert({ habit_id: habitId, date: dateStr } as any);
 
@@ -136,7 +131,28 @@ export function useCompleteHabit(onRefresh: () => void) {
 
   const uncomplete = useCallback(async (habitId: string) => {
     const dateStr = toDateStr(new Date());
+
+    const { data: existing } = await supabase
+      .from("completions")
+      .select("id")
+      .eq("habit_id", habitId)
+      .eq("date", dateStr)
+      .maybeSingle() as any;
+
+    if (!existing) return;
+
     await supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr);
+
+    // Subtract XP
+    const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
+    if (habit) {
+      const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+      const newXp = Math.max(0, (profile?.xp_total || 0) - habit.xp_estime);
+      const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
+      await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+    }
+
+    await updateStreak();
     onRefresh();
     toast("Habitude décochée.");
   }, [onRefresh]);
@@ -263,12 +279,8 @@ export function useUserProfile() {
   }, []);
 
   useEffect(() => {
-  applyXpDecay().then(() => refresh());
-}, []);
-
-useEffect(() => {
-  refresh();
-}, [refresh]);
+    refresh();
+  }, [refresh]);
 
   return { profile, refresh };
 }
