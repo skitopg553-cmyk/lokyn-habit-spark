@@ -38,8 +38,8 @@ const HomePage = () => {
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [lokynBounce, setLokynBounce] = useState(false);
 
-  const { habits, refresh } = useTodayHabits();
-  const { complete, uncomplete } = useCompleteHabit(refresh);
+  const { habits, refresh, setHabits } = useTodayHabits();
+  const { complete, uncomplete } = useCompleteHabit(refresh, setHabits);
   const { profile } = useUserProfile();
   const xpActuel = profile?.xp_total || 0;
   const xpPercent = Math.min(Math.round((xpActuel % 100)), 100);

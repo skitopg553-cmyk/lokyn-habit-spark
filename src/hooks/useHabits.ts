@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Dispatch, SetStateAction } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -63,6 +63,7 @@ export function useTodayHabits(selectedDate?: string) {
   const refresh = useCallback(async () => {
     const targetDate = new Date(dateStr + "T12:00:00");
     const jourActuel = JOUR_MAP[targetDate.getDay()];
+    const today = toDateStr(new Date());
 
     const { data: allHabits } = await supabase
       .from("habits")
@@ -70,7 +71,7 @@ export function useTodayHabits(selectedDate?: string) {
       .eq("user_id", "local_user")
       .eq("actif", true) as any;
 
-    const todayHabits = (allHabits || []).filter((h: any) => {
+    let todayHabits: any[] = (allHabits || []).filter((h: any) => {
       if (h.frequence === "daily") return true;
       if (h.frequence === "weekly" || h.frequence === "recurring") return h.jours?.includes(jourActuel);
       if (h.frequence === "once") return true;
@@ -82,7 +83,20 @@ export function useTodayHabits(selectedDate?: string) {
       .select("habit_id")
       .eq("date", dateStr) as any;
 
-    const completedIds = (completions || []).map((c: any) => c.habit_id);
+    const completedIds: string[] = (completions || []).map((c: any) => c.habit_id);
+
+    // Pour les dates passées/actuelles, inclure aussi les habitudes supprimées qui ont été complétées ce jour-là
+    if (dateStr <= today && completedIds.length > 0) {
+      const activeIds = new Set(todayHabits.map((h: any) => h.id));
+      const deletedCompletedIds = completedIds.filter((id) => !activeIds.has(id));
+      if (deletedCompletedIds.length > 0) {
+        const { data: deletedHabits } = await supabase
+          .from("habits")
+          .select("*")
+          .in("id", deletedCompletedIds) as any;
+        todayHabits = [...todayHabits, ...(deletedHabits || [])];
+      }
+    }
 
     setHabits(
       todayHabits.map((h: any) => ({
@@ -97,63 +111,84 @@ export function useTodayHabits(selectedDate?: string) {
     refresh();
   }, [refresh]);
 
-  return { habits, loading, refresh };
+  return { habits, loading, refresh, setHabits };
 }
 
-export function useCompleteHabit(onRefresh: () => void) {
+export function useCompleteHabit(
+  onRefresh: () => void,
+  setHabits: Dispatch<SetStateAction<Habit[]>>
+) {
   const complete = useCallback(async (habitId: string) => {
     const dateStr = toDateStr(new Date());
 
-    const { data: existing } = await supabase
-      .from("completions")
-      .select("id")
-      .eq("habit_id", habitId)
-      .eq("date", dateStr)
-      .maybeSingle() as any;
+    // Optimistic update
+    setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: true } : h));
 
-    if (existing) return;
+    try {
+      const { data: existing } = await supabase
+        .from("completions")
+        .select("id")
+        .eq("habit_id", habitId)
+        .eq("date", dateStr)
+        .maybeSingle() as any;
 
-    await supabase.from("completions").insert({ habit_id: habitId, date: dateStr } as any);
+      if (!existing) {
+        const { error } = await supabase.from("completions").insert({ habit_id: habitId, date: dateStr } as any);
+        if (error) throw error;
+      }
 
-    // Update XP + niveau
-    const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
-    if (habit) {
-      const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
-      const newXp = (profile?.xp_total || 0) + habit.xp_estime;
-      const newNiveau = Math.floor(newXp / 100) + 1;
-      await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+      // Update XP + niveau
+      const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
+      if (habit) {
+        const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+        const newXp = (profile?.xp_total || 0) + habit.xp_estime;
+        const newNiveau = Math.floor(newXp / 100) + 1;
+        await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+      }
+
+      await updateStreak();
+      onRefresh();
+    } catch {
+      // Rollback optimistic update
+      setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: false } : h));
     }
-
-    await updateStreak();
-    onRefresh();
-  }, [onRefresh]);
+  }, [onRefresh, setHabits]);
 
   const uncomplete = useCallback(async (habitId: string) => {
     const dateStr = toDateStr(new Date());
 
-    const { data: existing } = await supabase
-      .from("completions")
-      .select("id")
-      .eq("habit_id", habitId)
-      .eq("date", dateStr)
-      .maybeSingle() as any;
+    // Optimistic update
+    setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: false } : h));
 
-    if (!existing) return;
+    try {
+      const { data: existing } = await supabase
+        .from("completions")
+        .select("id")
+        .eq("habit_id", habitId)
+        .eq("date", dateStr)
+        .maybeSingle() as any;
 
-    await supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr);
+      if (!existing) return;
 
-    // Subtract XP
-    const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
-    if (habit) {
-      const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
-      const newXp = Math.max(0, (profile?.xp_total || 0) - habit.xp_estime);
-      const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
-      await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+      const { error } = await supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr);
+      if (error) throw error;
+
+      // Subtract XP
+      const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
+      if (habit) {
+        const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+        const newXp = Math.max(0, (profile?.xp_total || 0) - habit.xp_estime);
+        const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
+        await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+      }
+
+      await updateStreak();
+      onRefresh();
+    } catch {
+      // Rollback optimistic update
+      setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: true } : h));
     }
-
-    await updateStreak();
-    onRefresh();
-  }, [onRefresh]);
+  }, [onRefresh, setHabits]);
 
   return { complete, uncomplete };
 }

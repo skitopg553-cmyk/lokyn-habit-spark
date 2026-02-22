@@ -22,8 +22,8 @@ const HabitsPage = () => {
   const [selectedDay, setSelectedDay] = useState(todayIndex >= 0 ? todayIndex : 0);
   const selectedDateStr = weekDays[selectedDay]?.dateStr;
 
-  const { habits, loading, refresh } = useTodayHabits(selectedDateStr);
-  const { complete, uncomplete } = useCompleteHabit(refresh);
+  const { habits, loading, refresh, setHabits } = useTodayHabits(selectedDateStr);
+  const { complete, uncomplete } = useCompleteHabit(refresh, setHabits);
 
   const weekDateStrs = useMemo(() => weekDays.map((d) => d.dateStr), [weekDays]);
   const activeDates = useDaysWithActivity(weekDateStrs);
