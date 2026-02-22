@@ -32,7 +32,7 @@ const OnboardingPage = () => {
       .update({ prenom: prenom || "Toi", objectifs: selected } as any)
       .eq("id", "local_user");
     localStorage.setItem("onboarding_done", "true");
-    navigate("/");
+    navigate("/home");
   };
 
   return (
