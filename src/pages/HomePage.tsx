@@ -1,11 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import confetti from "canvas-confetti";
-import { toast } from "sonner";
 // StatBar supprimé
 import BottomNav from "../components/BottomNav";
 import lokynColere from "@/assets/lokyn-colere.png";
 import { useTodayHabits, useCompleteHabit, useUserProfile, Habit } from "@/hooks/useHabits";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const lokynMessages = [
   "Tu veux vraiment que je reste comme ça ?",
@@ -39,7 +37,6 @@ const HomePage = () => {
   const [message, setMessage] = useState(lokynMessages[0]);
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [lokynBounce, setLokynBounce] = useState(false);
-  const [proofModal, setProofModal] = useState<Habit | null>(null);
 
   const { habits, refresh } = useTodayHabits();
   const { complete, uncomplete } = useCompleteHabit(refresh);
@@ -63,8 +60,6 @@ const HomePage = () => {
     (habit: Habit) => {
       if (habit.completed) {
         uncomplete(habit.id);
-      } else if (habit.preuve_requise) {
-        setProofModal(habit);
       } else {
         complete(habit.id);
         fireConfetti();
@@ -198,45 +193,6 @@ const HomePage = () => {
           </div>
         </section>
       </main>
-
-      {/* Proof Modal */}
-      <Dialog open={!!proofModal} onOpenChange={(open) => { if (!open) setProofModal(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>📸 Preuve requise</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">{proofModal?.nom}</p>
-          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
-            <button
-              className="w-full bg-primary text-primary-foreground font-bold py-3 px-4 rounded-xl transition-opacity hover:opacity-90"
-              onClick={() => {
-                toast("Fonctionnalité à venir.");
-                setProofModal(null);
-              }}
-            >
-              📸 Ajouter une preuve
-            </button>
-            <button
-              className="w-full bg-success text-white font-bold py-3 px-4 rounded-xl transition-opacity hover:opacity-90"
-              onClick={() => {
-                if (proofModal) {
-                  complete(proofModal.id);
-                  fireConfetti();
-                }
-                setProofModal(null);
-              }}
-            >
-              ✓ Valider sans preuve
-            </button>
-            <button
-              className="w-full bg-surface text-muted-foreground font-bold py-3 px-4 rounded-xl transition-opacity hover:opacity-90"
-              onClick={() => setProofModal(null)}
-            >
-              Annuler
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <BottomNav />
     </div>

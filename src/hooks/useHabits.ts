@@ -126,7 +126,6 @@ export function useCompleteHabit(onRefresh: () => void) {
 
     await updateStreak();
     onRefresh();
-    toast("✅ Habitude validée !");
   }, [onRefresh]);
 
   const uncomplete = useCallback(async (habitId: string) => {
@@ -154,7 +153,6 @@ export function useCompleteHabit(onRefresh: () => void) {
 
     await updateStreak();
     onRefresh();
-    toast("Habitude décochée.");
   }, [onRefresh]);
 
   return { complete, uncomplete };

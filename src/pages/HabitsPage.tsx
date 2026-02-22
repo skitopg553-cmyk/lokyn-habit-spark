@@ -75,7 +75,7 @@ const HabitsPage = () => {
     if (swipeProgress > 0.5 && swipeDir) {
       const habit = habits.find((h) => h.id === swipingId);
       if (swipeDir === "right" && habit && !habit.completed) {
-        complete(habit.id, habit.preuve_requise);
+        complete(habit.id);
         confetti({
           particleCount: 5,
           spread: 50,
@@ -257,7 +257,7 @@ const HabitsPage = () => {
               ) : (
                 <div
                   className="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center cursor-pointer"
-                  onClick={() => complete(habit.id, false)}
+                  onClick={() => complete(habit.id)}
                 />
               )}
             </div>

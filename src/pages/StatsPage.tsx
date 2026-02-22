@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import BottomNav from "../components/BottomNav";
-import { useUserProfile, useTodayHabits, getWeekDays } from "@/hooks/useHabits";
+import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
 import lokynColere from "@/assets/lokyn-colere.png";
 import lokynForme from "@/assets/lokyn-forme.jpg";
@@ -66,15 +66,24 @@ const StatsPage = () => {
   const record = profile?.streak_record || 0;
   const isRecord = streak > 0 && streak === record;
 
-  const { habits: todayHabits } = useTodayHabits();
-  const score = todayHabits.length === 0
-    ? 0
-    : Math.round((todayHabits.filter(h => h.completed).length / todayHabits.length) * 100);
-
-  // Discipline chart - real data
+  // Discipline chart - real data (single source of truth for both bars and gauge)
   const weekDays = getWeekDays();
   const weekDateStrs = weekDays.map(d => d.dateStr);
+  const todayIndex = weekDays.findIndex(d => d.isToday);
   const [disciplineReal, setDisciplineReal] = useState<number[]>([0,0,0,0,0,0,0]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Score = today's discipline % (same source as bars → always in sync)
+  const score = disciplineReal[todayIndex >= 0 ? todayIndex : 0] ?? 0;
+
+  // Refetch when page becomes visible (e.g. after checking habits on another page)
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) setRefreshKey(k => k + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   useEffect(() => {
     async function loadWeekStats() {
@@ -106,7 +115,7 @@ const StatsPage = () => {
       setDisciplineReal(result);
     }
     loadWeekStats();
-  }, [weekDateStrs.join(",")]);
+  }, [weekDateStrs.join(","), refreshKey]);
 
   const disciplineData = disciplineReal;
 
@@ -226,12 +235,11 @@ const StatsPage = () => {
                   }
                 >
                   <div
-                    className={`aspect-[3/4] rounded-lg flex items-center justify-center ${
+                    className={`aspect-[3/4] rounded-lg relative overflow-hidden ${
                       card.color === "danger" ? "grayscale" : ""
                     }`}
-                    style={{ backgroundColor: "hsl(var(--surface))" }}
                   >
-                    <img src={card.img} alt="Lokyn" className="w-24 h-24 object-cover" style={{ filter: "drop-shadow(0 4px 12px rgba(255,107,43,0.3))" }} />
+                    <img src={card.img} alt="Lokyn" className="absolute inset-0 w-full h-full object-cover" />
                   </div>
                   <div className="px-2 pb-2 pt-1">
                     <p className="text-sm font-bold">{card.date}</p>
@@ -270,7 +278,7 @@ const StatsPage = () => {
                   <div
                     className="w-full rounded-t-sm cursor-pointer transition-all duration-150"
                     style={{
-                      height: barsAnimated ? `${value}%` : "0%",
+                      height: barsAnimated ? (value === 0 ? "4px" : `${value}%`) : "0px",
                       backgroundColor: getBarColor(value),
                       transitionDuration: "500ms",
                       transitionDelay: `${i * 80}ms`,
