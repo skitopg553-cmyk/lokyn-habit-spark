@@ -8,10 +8,17 @@ import lokynGalere from "@/assets/lokyn-galere.jpg";
 
 const periods = ["7J", "30J", "Tout"] as const;
 
+const monthNamesFr = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+function getRecentDayLabel(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getDate()} ${monthNamesFr[d.getMonth()]}`;
+}
+
 const timelineCards = [
-  { date: "12 Mai", status: "En forme", color: "success" as const, img: lokynForme },
-  { date: "11 Mai", status: "En galère", color: "danger" as const, img: lokynGalere },
-  { date: "10 Mai", status: "Au sommet", color: "warning" as const, img: lokynForme },
+  { date: getRecentDayLabel(0), status: "En forme", color: "success" as const, img: lokynForme },
+  { date: getRecentDayLabel(1), status: "En galère", color: "danger" as const, img: lokynGalere },
+  { date: getRecentDayLabel(2), status: "Au sommet", color: "warning" as const, img: lokynForme },
 ];
 
 const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
@@ -248,27 +255,29 @@ const StatsPage = () => {
           </h3>
           <div className="flex items-end justify-between h-32 gap-2">
             {disciplineData.map((value, i) => (
-              <div key={i} className="flex flex-col items-center flex-1 gap-2 relative">
-                {hoveredBar === i && (
-                  <div className="absolute -top-7 bg-card border border-white/10 text-xs font-bold px-2 py-1 rounded-lg z-10">
-                    {value}%
-                  </div>
-                )}
-                <div
-                  className="w-full rounded-t-sm cursor-pointer transition-all duration-150"
-                  style={{
-                    height: barsAnimated ? `${value}%` : "0%",
-                    backgroundColor: getBarColor(value),
-                    transitionDuration: "500ms",
-                    transitionDelay: `${i * 80}ms`,
-                    transitionTimingFunction: "ease-out",
-                    filter: hoveredBar === i ? "brightness(1.3)" : "brightness(1)",
-                  }}
-                  onMouseEnter={() => setHoveredBar(i)}
-                  onMouseLeave={() => setHoveredBar(null)}
-                  onClick={() => setHoveredBar(hoveredBar === i ? null : i)}
-                />
-                <span className="text-[10px] text-muted-foreground">{dayLabels[i]}</span>
+              <div key={i} className="flex flex-col items-center flex-1 h-full relative">
+                <div className="flex-1 w-full flex items-end relative">
+                  {hoveredBar === i && (
+                    <div className="absolute -top-7 bg-card border border-white/10 text-xs font-bold px-2 py-1 rounded-lg z-10">
+                      {value}%
+                    </div>
+                  )}
+                  <div
+                    className="w-full rounded-t-sm cursor-pointer transition-all duration-150"
+                    style={{
+                      height: barsAnimated ? `${value}%` : "0%",
+                      backgroundColor: getBarColor(value),
+                      transitionDuration: "500ms",
+                      transitionDelay: `${i * 80}ms`,
+                      transitionTimingFunction: "ease-out",
+                      filter: hoveredBar === i ? "brightness(1.3)" : "brightness(1)",
+                    }}
+                    onMouseEnter={() => setHoveredBar(i)}
+                    onMouseLeave={() => setHoveredBar(null)}
+                    onClick={() => setHoveredBar(hoveredBar === i ? null : i)}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground mt-1">{dayLabels[i]}</span>
               </div>
             ))}
           </div>
@@ -276,7 +285,7 @@ const StatsPage = () => {
 
         {/* Global Score Gauge */}
         <section className="mt-12 px-6 flex flex-col items-center">
-          <div className="relative w-48 h-32 flex items-center justify-center overflow-hidden">
+          <div className="relative w-48 h-48 flex items-center justify-center">
             <svg className="absolute top-0 w-48 h-48 -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50" cy="50" r="40"
@@ -298,7 +307,7 @@ const StatsPage = () => {
                 }}
               />
             </svg>
-            <div className="mt-12 text-center z-10">
+            <div className="text-center z-10">
               <span className="text-4xl font-bold">{displayScore}</span>
               <span className="text-muted-foreground text-lg"> / 100</span>
             </div>
