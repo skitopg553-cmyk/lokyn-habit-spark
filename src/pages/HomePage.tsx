@@ -2,17 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import confetti from "canvas-confetti";
 // StatBar supprimé
 import BottomNav from "../components/BottomNav";
-import lokynColere from "@/assets/lokyn-colere.png";
 import { useTodayHabits, useCompleteHabit, useUserProfile, Habit } from "@/hooks/useHabits";
-
-const lokynMessages = [
-  "Tu veux vraiment que je reste comme ça ?",
-  "Je t'avais prévenu.",
-  "Un effort. Juste un.",
-  "...",
-  "Tu me fais honte.",
-  "Allez, bouge.",
-];
+import { useLokynState, MESSAGES_BY_ETAT } from "@/hooks/useLokynState";
+import { supabase } from "@/integrations/supabase/client";
 
 const ICON_MAP: Record<string, string> = {
   sport: "fitness_center",
@@ -34,9 +26,13 @@ const fireConfetti = () =>
   });
 
 const HomePage = () => {
-  const [message, setMessage] = useState(lokynMessages[0]);
+  const [message, setMessage] = useState("…");
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [lokynBounce, setLokynBounce] = useState(false);
+
+  // Lokyn state data
+  const [accountAgeDays, setAccountAgeDays] = useState(999);
+  const [joursInactif, setJoursInactif] = useState(0);
 
   const { habits, refresh, setHabits } = useTodayHabits();
   const { profile, refresh: refreshProfile } = useUserProfile();
@@ -48,6 +44,68 @@ const HomePage = () => {
   const xpActuel = profile?.xp_total || 0;
   const xpPercent = Math.min(Math.round((xpActuel % 100)), 100);
 
+  const doneCount = habits.filter((h) => h.completed).length;
+  const totalCount = habits.length;
+  const completionPercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 100;
+
+  const lokyn = useLokynState({
+    streak: profile?.streak_actuel || 0,
+    completionPercent,
+    joursInactif,
+    accountAgeDays,
+  });
+
+  // Fetch accountAgeDays and joursInactif on mount
+  useEffect(() => {
+    async function fetchLokynData() {
+      // Account age from user_profile.created_at
+      const { data: profileData } = await supabase
+        .from("user_profile")
+        .select("created_at")
+        .eq("id", "local_user")
+        .maybeSingle() as any;
+
+      if (profileData?.created_at) {
+        const created = new Date(profileData.created_at);
+        const now = new Date();
+        const diffDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+        setAccountAgeDays(diffDays);
+      }
+
+      // Count consecutive inactive days before today
+      const today = new Date();
+      const pastDates = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() - (i + 1));
+        return d.toISOString().split("T")[0];
+      });
+
+      const { data: completions } = await supabase
+        .from("completions")
+        .select("date")
+        .in("date", pastDates) as any;
+
+      const completionDates = new Set((completions || []).map((c: any) => c.date));
+      let inactif = 0;
+      for (const date of pastDates) {
+        if (!completionDates.has(date)) {
+          inactif++;
+        } else {
+          break;
+        }
+      }
+      setJoursInactif(inactif);
+    }
+
+    fetchLokynData();
+  }, []);
+
+  // Update bubble message when lokyn state changes
+  useEffect(() => {
+    const pool = MESSAGES_BY_ETAT[lokyn.etat];
+    setMessage(pool[0]);
+  }, [lokyn.etat]);
+
   useEffect(() => {
     const timer = setTimeout(() => setBubbleVisible(true), 500);
     return () => clearTimeout(timer);
@@ -55,10 +113,11 @@ const HomePage = () => {
 
   const handleLokynTap = useCallback(() => {
     setLokynBounce(true);
-    const randomMsg = lokynMessages[Math.floor(Math.random() * lokynMessages.length)];
+    const pool = MESSAGES_BY_ETAT[lokyn.etat];
+    const randomMsg = pool[Math.floor(Math.random() * pool.length)];
     setMessage(randomMsg);
     setTimeout(() => setLokynBounce(false), 200);
-  }, []);
+  }, [lokyn.etat]);
 
   const handleCheckbox = useCallback(
     (habit: Habit) => {
@@ -71,9 +130,6 @@ const HomePage = () => {
     },
     [complete, uncomplete]
   );
-
-  const doneCount = habits.filter((h) => h.completed).length;
-  const totalCount = habits.length;
 
   return (
     <div className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-x-hidden pb-24">
@@ -120,12 +176,15 @@ const HomePage = () => {
             }}
           >
             <img
-              src={lokynColere}
+              src={lokyn.image}
               alt="Lokyn"
               className="w-48 h-48 object-contain select-none"
-              style={{ filter: "drop-shadow(0 10px 20px rgba(255,107,43,0.35))" }}
+              style={{ filter: lokyn.dropShadowColor }}
             />
           </div>
+
+          {/* Lokyn state label */}
+          <p className="text-xs text-muted-foreground italic mt-1 text-center">{lokyn.label}</p>
 
           {/* Vitality Bars */}
           <div className="w-full max-w-sm px-6 mt-8">
