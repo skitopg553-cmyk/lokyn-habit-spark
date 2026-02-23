@@ -170,7 +170,6 @@ const HomePage = () => {
             className="w-64 h-64 flex items-center justify-center cursor-pointer"
             onClick={handleLokynTap}
             style={{
-              animation: "lokyn-float 2.5s ease-in-out infinite",
               transform: lokynBounce ? "scale(1.08)" : "scale(1)",
               transition: "transform 200ms cubic-bezier(0.68, -0.55, 0.27, 1.55)",
             }}
@@ -179,7 +178,7 @@ const HomePage = () => {
               src={lokyn.image}
               alt="Lokyn"
               className="w-48 h-48 object-contain select-none"
-              style={{ filter: lokyn.dropShadowColor }}
+              style={{ mixBlendMode: "screen" }}
             />
           </div>
 
