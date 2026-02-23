@@ -39,8 +39,12 @@ const HomePage = () => {
   const [lokynBounce, setLokynBounce] = useState(false);
 
   const { habits, refresh, setHabits } = useTodayHabits();
-  const { complete, uncomplete } = useCompleteHabit(refresh, setHabits);
-  const { profile } = useUserProfile();
+  const { profile, refresh: refreshProfile } = useUserProfile();
+  const combinedRefresh = useCallback(() => {
+    refresh();
+    refreshProfile();
+  }, [refresh, refreshProfile]);
+  const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits);
   const xpActuel = profile?.xp_total || 0;
   const xpPercent = Math.min(Math.round((xpActuel % 100)), 100);
 

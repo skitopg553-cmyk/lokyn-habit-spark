@@ -89,27 +89,41 @@ const StatsPage = () => {
     async function loadWeekStats() {
       const { data: habits } = await supabase
         .from("habits")
-        .select("id")
+        .select("id, frequence, jours")
         .eq("user_id", "local_user")
         .eq("actif", true) as any;
 
-      const habitIds = (habits || []).map((h: any) => h.id);
-      const totalHabits = habitIds.length;
+      const allHabits = habits || [];
 
-      if (totalHabits === 0) {
+      if (allHabits.length === 0) {
         setDisciplineReal([0,0,0,0,0,0,0]);
         return;
       }
+
+      const allHabitIds = allHabits.map((h: any) => h.id);
 
       const { data: completions } = await supabase
         .from("completions")
         .select("date, habit_id")
         .in("date", weekDateStrs)
-        .in("habit_id", habitIds) as any;
+        .in("habit_id", allHabitIds) as any;
 
-      const result = weekDateStrs.map(dateStr => {
-        const count = (completions || []).filter((c: any) => c.date === dateStr).length;
-        return Math.min(Math.round((count / totalHabits) * 100), 100);
+      const JOUR_MAP_LOCAL = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+
+      const result = weekDays.map((day) => {
+        const jourLabel = JOUR_MAP_LOCAL[day.date.getDay()];
+        const dayHabits = allHabits.filter((h: any) => {
+          if (h.frequence === "daily") return true;
+          if (h.frequence === "weekly" || h.frequence === "recurring") return h.jours?.includes(jourLabel);
+          if (h.frequence === "once") return true;
+          return false;
+        });
+        const dayHabitIds = new Set(dayHabits.map((h: any) => h.id));
+        const count = (completions || []).filter(
+          (c: any) => c.date === day.dateStr && dayHabitIds.has(c.habit_id)
+        ).length;
+        const total = dayHabits.length;
+        return total === 0 ? 0 : Math.min(Math.round((count / total) * 100), 100);
       });
 
       setDisciplineReal(result);
