@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
-import lokynColere from "@/assets/lokyn-colere.png";
+import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
 import lokynForme from "@/assets/lokyn-forme.jpg";
 import lokynGalere from "@/assets/lokyn-galere.jpg";
 

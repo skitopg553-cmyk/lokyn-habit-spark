@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import lokynColere from "@/assets/lokyn-colere.png";
+import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
 
 const objectifs = [
   { id: "sport", label: "💪 Muscu / Sport" },
@@ -43,7 +43,7 @@ const OnboardingPage = () => {
         <div className="flex flex-col items-center justify-center flex-1 text-center"
           style={{ animation: "slide-up-fade 500ms ease-out both" }}>
           <div style={{ animation: "lokyn-float 2.5s ease-in-out infinite" }}>
-            <img src={lokynColere} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
+            <img src={lokynNeutre} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
               style={{ filter: "drop-shadow(0 10px 30px rgba(255,107,43,0.5))" }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-4 leading-tight">
@@ -135,7 +135,7 @@ const OnboardingPage = () => {
         <div className="flex flex-col items-center justify-center flex-1 text-center"
           style={{ animation: "slide-up-fade 500ms ease-out both" }}>
           <div style={{ animation: "lokyn-float 2.5s ease-in-out infinite" }}>
-            <img src={lokynColere} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
+            <img src={lokynNeutre} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
               style={{ filter: "drop-shadow(0 10px 30px rgba(255,107,43,0.5))" }} />
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">

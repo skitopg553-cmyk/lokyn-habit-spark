@@ -37,8 +37,7 @@ const HomePage = () => {
   const { habits, refresh, setHabits } = useTodayHabits();
   const { profile, refresh: refreshProfile } = useUserProfile();
   const combinedRefresh = useCallback(() => {
-    refresh();
-    refreshProfile();
+    return Promise.all([refresh(), refreshProfile()]);
   }, [refresh, refreshProfile]);
   const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits);
   const xpActuel = profile?.xp_total || 0;

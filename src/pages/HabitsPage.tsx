@@ -3,7 +3,7 @@ import confetti from "canvas-confetti";
 import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
-import { useTodayHabits, useCompleteHabit, getWeekDays, useDaysWithActivity } from "@/hooks/useHabits";
+import { useTodayHabits, useCompleteHabit, useUserProfile, getWeekDays, useDaysWithActivity } from "@/hooks/useHabits";
 
 const ICON_MAP: Record<string, { icon: string; color: string; bg: string }> = {
   sport: { icon: "fitness_center", color: "text-primary", bg: "bg-primary/20" },
@@ -23,7 +23,11 @@ const HabitsPage = () => {
   const selectedDateStr = weekDays[selectedDay]?.dateStr;
 
   const { habits, loading, refresh, setHabits } = useTodayHabits(selectedDateStr);
-  const { complete, uncomplete } = useCompleteHabit(refresh, setHabits);
+  const { refresh: refreshProfile } = useUserProfile();
+  const combinedRefresh = useCallback(() => {
+    return Promise.all([refresh(), refreshProfile()]);
+  }, [refresh, refreshProfile]);
+  const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits);
 
   const weekDateStrs = useMemo(() => weekDays.map((d) => d.dateStr), [weekDays]);
   const activeDates = useDaysWithActivity(weekDateStrs);

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
-import lokynColere from "@/assets/lokyn-colere.png";
+import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
 import { createHabit } from "@/hooks/useHabits";
 
 const categories = [
@@ -351,7 +351,7 @@ const NewHabitPage = () => {
                 transition: "all 300ms ease-out",
               }}
             >
-              <img src={lokynColere} alt="Lokyn" className="w-8 h-8 object-contain" />
+              <img src={lokynNeutre} alt="Lokyn" className="w-8 h-8 object-contain" />
               <p className="text-xs text-muted-foreground font-medium italic">{lokynMessage}</p>
             </div>
           </div>

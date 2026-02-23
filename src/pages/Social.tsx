@@ -1,6 +1,6 @@
 import { useState } from "react";
 import BottomNav from "../components/BottomNav";
-import lokynColere from "@/assets/lokyn-colere.png";
+import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
 
 const mockFriends = [
   {
@@ -116,7 +116,7 @@ const SocialPage = () => {
                   : "border-destructive bg-destructive/10"
               }`}>
                 <img
-                  src={lokynColere}
+                  src={lokynNeutre}
                   alt="Lokyn"
                   className={`w-10 h-10 object-contain ${
                     friend.status === "en_galere" ? "grayscale opacity-60" : ""

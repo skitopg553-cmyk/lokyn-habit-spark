@@ -99,10 +99,10 @@ export function useLokynState({
     etat = "oeuf-3";
   } else if (accountAgeDays <= 3 && streak < 3) {
     etat = "oeuf-eclosion";
-  } else if (streak >= 5 && completionPercent >= 80) {
-    etat = "rayonnant";
-  } else if (streak >= 3 && completionPercent >= 50) {
+  } else if (completionPercent === 100) {
     etat = "streak";
+  } else if (completionPercent >= 50 && streak >= 3) {
+    etat = "rayonnant";
   } else if (joursInactif >= 2) {
     etat = "chute";
   } else if (joursInactif >= 1 || completionPercent < 50) {
