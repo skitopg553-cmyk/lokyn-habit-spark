@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Dispatch, SetStateAction } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toDateStr, JOUR_MAP, JOUR_LABELS } from "@/lib/utils";
 
 export interface Habit {
   id: string;
@@ -28,9 +29,6 @@ export interface UserProfile {
   objectifs: string[];
 }
 
-const JOUR_MAP = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
-const JOUR_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
 export function getWeekDays() {
   const today = new Date();
   const dayOfWeek = today.getDay();
@@ -48,10 +46,6 @@ export function getWeekDays() {
       num: d.getDate(),
     };
   });
-}
-
-function toDateStr(d: Date) {
-  return d.toISOString().split("T")[0];
 }
 
 export function useTodayHabits(selectedDate?: string) {
@@ -116,13 +110,25 @@ export function useTodayHabits(selectedDate?: string) {
 
 export function useCompleteHabit(
   onRefresh: () => void,
-  setHabits: Dispatch<SetStateAction<Habit[]>>
+  setHabits: Dispatch<SetStateAction<Habit[]>>,
+  selectedDate?: string,
+  setProfile?: Dispatch<SetStateAction<UserProfile | null>>
 ) {
-  const complete = useCallback(async (habitId: string) => {
-    const dateStr = toDateStr(new Date());
+  const complete = useCallback(async (habitId: string, xpEstime?: number) => {
+    const dateStr = selectedDate || toDateStr(new Date());
 
-    // Optimistic update
+    // Optimistic update habits
     setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: true } : h));
+
+    // Optimistic update profile XP
+    if (setProfile && xpEstime !== undefined) {
+      setProfile((prev) => {
+        if (!prev) return prev;
+        const newXp = prev.xp_total + xpEstime;
+        const newNiveau = Math.floor(newXp / 100) + 1;
+        return { ...prev, xp_total: newXp, niveau: newNiveau };
+      });
+    }
 
     try {
       const { data: existing } = await supabase
@@ -137,28 +143,47 @@ export function useCompleteHabit(
         if (error) throw error;
       }
 
-      // Update XP + niveau
+      // Update XP + niveau in Supabase
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
-        const newXp = (profile?.xp_total || 0) + habit.xp_estime;
+        const { data: profileData } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+        const newXp = (profileData?.xp_total || 0) + habit.xp_estime;
         const newNiveau = Math.floor(newXp / 100) + 1;
         await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
       }
 
       await updateStreak();
+      localStorage.removeItem("lokyn_jours_inactif");
       onRefresh();
     } catch {
-      // Rollback optimistic update
+      // Rollback optimistic updates
       setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: false } : h));
+      if (setProfile && xpEstime !== undefined) {
+        setProfile((prev) => {
+          if (!prev) return prev;
+          const newXp = Math.max(0, prev.xp_total - xpEstime);
+          const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
+          return { ...prev, xp_total: newXp, niveau: newNiveau };
+        });
+      }
     }
-  }, [onRefresh, setHabits]);
+  }, [onRefresh, setHabits, selectedDate, setProfile]);
 
-  const uncomplete = useCallback(async (habitId: string) => {
-    const dateStr = toDateStr(new Date());
+  const uncomplete = useCallback(async (habitId: string, xpEstime?: number) => {
+    const dateStr = selectedDate || toDateStr(new Date());
 
-    // Optimistic update
+    // Optimistic update habits
     setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: false } : h));
+
+    // Optimistic update profile XP (subtract)
+    if (setProfile && xpEstime !== undefined) {
+      setProfile((prev) => {
+        if (!prev) return prev;
+        const newXp = Math.max(0, prev.xp_total - xpEstime);
+        const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
+        return { ...prev, xp_total: newXp, niveau: newNiveau };
+      });
+    }
 
     try {
       const { data: existing } = await supabase
@@ -173,22 +198,31 @@ export function useCompleteHabit(
       const { error } = await supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr);
       if (error) throw error;
 
-      // Subtract XP
+      // Subtract XP in Supabase
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const { data: profile } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
-        const newXp = Math.max(0, (profile?.xp_total || 0) - habit.xp_estime);
+        const { data: profileData } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+        const newXp = Math.max(0, (profileData?.xp_total || 0) - habit.xp_estime);
         const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
         await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
       }
 
       await updateStreak();
+      localStorage.removeItem("lokyn_jours_inactif");
       onRefresh();
     } catch {
-      // Rollback optimistic update
+      // Rollback optimistic updates
       setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: true } : h));
+      if (setProfile && xpEstime !== undefined) {
+        setProfile((prev) => {
+          if (!prev) return prev;
+          const newXp = prev.xp_total + xpEstime;
+          const newNiveau = Math.floor(newXp / 100) + 1;
+          return { ...prev, xp_total: newXp, niveau: newNiveau };
+        });
+      }
     }
-  }, [onRefresh, setHabits]);
+  }, [onRefresh, setHabits, selectedDate, setProfile]);
 
   return { complete, uncomplete };
 }
@@ -196,17 +230,19 @@ export function useCompleteHabit(
 export async function updateStreak() {
   const { data: completions } = await supabase
     .from("completions")
-    .select("date")
+    .select("date, habit_id")
     .order("date", { ascending: false }) as any;
 
-  const { data: habits } = await supabase
+  // Fetch ALL habits (including inactive) to check historical scheduling
+  const { data: allHabits } = await supabase
     .from("habits")
-    .select("*")
-    .eq("user_id", "local_user")
-    .eq("actif", true) as any;
+    .select("id, frequence, jours, date_creation")
+    .eq("user_id", "local_user") as any;
 
-  const dailyHabits = (habits || []).filter((h: any) => h.frequence === "daily" || h.frequence === "recurring");
-  if (!dailyHabits.length) return;
+  const allRecurring = (allHabits || []).filter((h: any) =>
+    h.frequence === "daily" || h.frequence === "recurring"
+  );
+  if (!allRecurring.length) return;
 
   let streak = 0;
   const today = new Date();
@@ -215,8 +251,23 @@ export async function updateStreak() {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const ds = toDateStr(d);
-    const completedToday = (completions || []).filter((c: any) => c.date === ds).length;
-    if (completedToday >= dailyHabits.length) {
+    const jourLabel = JOUR_MAP[d.getDay()];
+
+    // Only count habits that existed on this day and were scheduled
+    const habitsForDay = allRecurring.filter((h: any) => {
+      const created = (h.date_creation || "").slice(0, 10);
+      if (created > ds) return false;
+      if (h.frequence === "daily") return true;
+      if (h.frequence === "recurring") return h.jours?.includes(jourLabel);
+      return false;
+    });
+
+    const habitIds = new Set(habitsForDay.map((h: any) => h.id));
+    const completedCount = (completions || []).filter(
+      (c: any) => c.date === ds && habitIds.has(c.habit_id)
+    ).length;
+
+    if (completedCount >= habitsForDay.length) {
       streak++;
     } else if (i > 0) {
       break;
@@ -238,7 +289,13 @@ export async function updateStreak() {
     .eq("id", "local_user");
 }
 
+// Singleton guard — applyXpDecay runs only once per session
+let decayApplied = false;
+
 export async function applyXpDecay() {
+  if (decayApplied) return;
+  decayApplied = true;
+
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
 
@@ -294,7 +351,6 @@ export async function applyXpDecay() {
     .eq("id", "local_user");
 }
 
-
 export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
@@ -315,7 +371,7 @@ export function useUserProfile() {
     refresh();
   }, [refresh]);
 
-  return { profile, refresh };
+  return { profile, refresh, setProfile };
 }
 
 export function useHomeStats(habits: Habit[]) {

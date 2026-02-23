@@ -75,7 +75,7 @@ const NewHabitPage = () => {
       ? selectedDays.map((i) => dayLabels[i].key)
       : [];
 
-    const frequenceDb = frequency === "recurring" ? "daily" : frequency === "weekly" ? "weekly" : "once";
+    const frequenceDb = frequency === "recurring" ? "recurring" : frequency === "weekly" ? "weekly" : "once";
 
     const success = await createHabit({
       nom: habitName.trim(),

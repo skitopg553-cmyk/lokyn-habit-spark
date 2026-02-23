@@ -44,7 +44,7 @@ const OnboardingPage = () => {
           style={{ animation: "slide-up-fade 500ms ease-out both" }}>
           <div style={{ animation: "lokyn-float 2.5s ease-in-out infinite" }}>
             <img src={lokynNeutre} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
-              style={{ filter: "drop-shadow(0 10px 30px rgba(255,107,43,0.5))" }} />
+              style={{ mixBlendMode: "screen" }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-4 leading-tight">
             Si tu fais rien,<br />
@@ -136,7 +136,7 @@ const OnboardingPage = () => {
           style={{ animation: "slide-up-fade 500ms ease-out both" }}>
           <div style={{ animation: "lokyn-float 2.5s ease-in-out infinite" }}>
             <img src={lokynNeutre} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
-              style={{ filter: "drop-shadow(0 10px 30px rgba(255,107,43,0.5))" }} />
+              style={{ mixBlendMode: "screen" }} />
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">
             Ok, <span className="text-primary">{prenom}</span>.<br />

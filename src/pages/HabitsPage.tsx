@@ -4,15 +4,7 @@ import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useTodayHabits, useCompleteHabit, useUserProfile, getWeekDays, useDaysWithActivity } from "@/hooks/useHabits";
-
-const ICON_MAP: Record<string, { icon: string; color: string; bg: string }> = {
-  sport: { icon: "fitness_center", color: "text-primary", bg: "bg-primary/20" },
-  projet: { icon: "work", color: "text-purple-400", bg: "bg-purple-500/20" },
-  connaissance: { icon: "menu_book", color: "text-blue-400", bg: "bg-blue-500/20" },
-  addiction: { icon: "block", color: "text-red-400", bg: "bg-red-500/20" },
-  mental: { icon: "self_improvement", color: "text-emerald-500", bg: "bg-emerald-500/20" },
-  nutrition: { icon: "water_drop", color: "text-amber-500", bg: "bg-amber-500/20" },
-};
+import { ICON_MAP } from "@/lib/utils";
 
 const JOUR_LABELS_UPPER = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
 
@@ -23,11 +15,11 @@ const HabitsPage = () => {
   const selectedDateStr = weekDays[selectedDay]?.dateStr;
 
   const { habits, loading, refresh, setHabits } = useTodayHabits(selectedDateStr);
-  const { refresh: refreshProfile } = useUserProfile();
+  const { refresh: refreshProfile, setProfile } = useUserProfile();
   const combinedRefresh = useCallback(() => {
     return Promise.all([refresh(), refreshProfile()]);
   }, [refresh, refreshProfile]);
-  const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits);
+  const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits, selectedDateStr, setProfile);
 
   const weekDateStrs = useMemo(() => weekDays.map((d) => d.dateStr), [weekDays]);
   const activeDates = useDaysWithActivity(weekDateStrs);
@@ -35,9 +27,8 @@ const HabitsPage = () => {
   const [progressAnimated, setProgressAnimated] = useState(false);
   const touchStartX = useRef<number>(0);
   const [swipingId, setSwipingId] = useState<string | null>(null);
-  const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
+  const [swipeDir, setSwipeDir] = useState<"right" | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0);
-  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
   const [longPressId, setLongPressId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -71,15 +62,15 @@ const HabitsPage = () => {
     const diff = e.touches[0].clientX - touchStartX.current;
     const progress = Math.min(Math.abs(diff) / 120, 1);
     setSwipeProgress(progress);
-    setSwipeDir(diff > 20 ? "right" : diff < -20 ? "left" : null);
+    setSwipeDir(diff > 20 ? "right" : null);
   };
 
   const handleTouchEnd = () => {
     if (swipingId === null) return;
-    if (swipeProgress > 0.5 && swipeDir) {
+    if (swipeProgress > 0.5 && swipeDir === "right") {
       const habit = habits.find((h) => h.id === swipingId);
-      if (swipeDir === "right" && habit && !habit.completed) {
-        complete(habit.id);
+      if (habit && !habit.completed) {
+        complete(habit.id, habit.xp_estime);
         confetti({
           particleCount: 5,
           spread: 50,
@@ -88,8 +79,6 @@ const HabitsPage = () => {
           scalar: 0.7,
           gravity: 1.5,
         });
-      } else if (swipeDir === "left") {
-        setReportedIds((prev) => new Set(prev).add(swipingId));
       }
     }
     setSwipingId(null);
@@ -181,7 +170,6 @@ const HabitsPage = () => {
 
         {habits.map((habit, i) => {
           const mapping = ICON_MAP[habit.categorie] || { icon: "star", color: "text-primary", bg: "bg-primary/20" };
-          const isReported = reportedIds.has(habit.id);
 
           return (
             <div
@@ -192,14 +180,12 @@ const HabitsPage = () => {
                   : habit.preuve_requise
                   ? "bg-white/5 border-2 border-primary/20"
                   : "bg-white/5 border border-white/5 shadow-sm"
-              } ${isReported ? "opacity-50" : ""}`}
+              }`}
               style={{
                 animation: `slide-up-fade 400ms ease-out ${i * 80}ms both`,
                 background:
                   swipingId === habit.id && swipeDir === "right"
                     ? `linear-gradient(to right, hsl(163 96% 43% / ${swipeProgress * 0.3}), transparent)`
-                    : swipingId === habit.id && swipeDir === "left"
-                    ? `linear-gradient(to left, hsl(348 86% 61% / ${swipeProgress * 0.3}), transparent)`
                     : undefined,
               }}
               onTouchStart={(e) => {
@@ -217,12 +203,9 @@ const HabitsPage = () => {
                 if (longPressTimer.current) clearTimeout(longPressTimer.current);
               }}
             >
-              {/* Swipe icons */}
+              {/* Swipe right icon */}
               {swipingId === habit.id && swipeDir === "right" && (
                 <div className="absolute left-4 text-success font-bold" style={{ opacity: swipeProgress }}>✓</div>
-              )}
-              {swipingId === habit.id && swipeDir === "left" && (
-                <div className="absolute right-4 text-muted-foreground" style={{ opacity: swipeProgress }}>↷</div>
               )}
 
               <div className={`w-12 h-12 rounded-lg ${mapping.bg} ${mapping.color} flex items-center justify-center`}>
@@ -241,7 +224,6 @@ const HabitsPage = () => {
                       Preuve requise
                     </span>
                   )}
-                  {isReported && <span className="text-xs text-muted-foreground">Reporté</span>}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {habit.frequence === "daily" || habit.frequence === "recurring" ? "Quotidien" : habit.frequence} • {habit.xp_estime} XP
@@ -250,7 +232,7 @@ const HabitsPage = () => {
               {habit.completed ? (
                 <div
                   className="w-8 h-8 rounded-full bg-success text-success-foreground flex items-center justify-center cursor-pointer"
-                  onClick={() => uncomplete(habit.id)}
+                  onClick={() => uncomplete(habit.id, habit.xp_estime)}
                 >
                   <span className="material-symbols-outlined text-sm">check</span>
                 </div>
@@ -261,7 +243,7 @@ const HabitsPage = () => {
               ) : (
                 <div
                   className="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center cursor-pointer"
-                  onClick={() => complete(habit.id)}
+                  onClick={() => complete(habit.id, habit.xp_estime)}
                 />
               )}
             </div>

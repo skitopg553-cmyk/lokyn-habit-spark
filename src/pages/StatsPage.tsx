@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
+import { JOUR_MAP } from "@/lib/utils";
 import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
-import lokynForme from "@/assets/lokyn-forme.jpg";
-import lokynGalere from "@/assets/lokyn-galere.jpg";
+import lokynRayonnant from "@/assets/lokyn-rayonnant.png.jpg";
+import lokynDecu from "@/assets/lokyn-decu.png.jpg";
+import lokynChute from "@/assets/lokyn-chute.png.jpg";
 
 const periods = ["7J", "30J", "Tout"] as const;
 
@@ -15,11 +17,19 @@ function getRecentDayLabel(daysAgo: number): string {
   return `${d.getDate()} ${monthNamesFr[d.getMonth()]}`;
 }
 
-const timelineCards = [
-  { date: getRecentDayLabel(0), status: "En forme", color: "success" as const, img: lokynForme },
-  { date: getRecentDayLabel(1), status: "En galère", color: "danger" as const, img: lokynGalere },
-  { date: getRecentDayLabel(2), status: "Au sommet", color: "warning" as const, img: lokynForme },
-];
+function getTimelineImg(score: number): string {
+  if (score === 0) return lokynChute;
+  if (score < 50) return lokynDecu;
+  if (score < 80) return lokynNeutre;
+  return lokynRayonnant;
+}
+
+function getTimelineStatus(score: number): { status: string; color: "success" | "danger" | "warning" } {
+  if (score >= 80) return { status: "Au sommet", color: "success" };
+  if (score >= 50) return { status: "Correct", color: "warning" };
+  if (score > 0) return { status: "En galère", color: "danger" };
+  return { status: "Inactif", color: "danger" };
+}
 
 const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -76,6 +86,20 @@ const StatsPage = () => {
   // Score = today's discipline % (same source as bars → always in sync)
   const score = disciplineReal[todayIndex >= 0 ? todayIndex : 0] ?? 0;
 
+  // Timeline cards derived from real data
+  const timelineCards = useMemo(() => {
+    const cards = [];
+    for (let ago = 2; ago >= 0; ago--) {
+      const idx = todayIndex - ago;
+      if (idx >= 0 && idx < 7) {
+        const s = disciplineReal[idx] ?? 0;
+        const { status, color } = getTimelineStatus(s);
+        cards.push({ date: getRecentDayLabel(ago), img: getTimelineImg(s), status, color });
+      }
+    }
+    return cards;
+  }, [disciplineReal, todayIndex]);
+
   // Refetch when page becomes visible (e.g. after checking habits on another page)
   useEffect(() => {
     const onVisible = () => {
@@ -108,10 +132,8 @@ const StatsPage = () => {
         .in("date", weekDateStrs)
         .in("habit_id", allHabitIds) as any;
 
-      const JOUR_MAP_LOCAL = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
-
       const result = weekDays.map((day) => {
-        const jourLabel = JOUR_MAP_LOCAL[day.date.getDay()];
+        const jourLabel = JOUR_MAP[day.date.getDay()];
         const dayHabits = allHabits.filter((h: any) => {
           if (h.frequence === "daily") return true;
           if (h.frequence === "weekly" || h.frequence === "recurring") return h.jours?.includes(jourLabel);
@@ -235,25 +257,9 @@ const StatsPage = () => {
                       ? "border-2 border-primary scale-105 bg-card"
                       : "bg-card opacity-70"
                   }`}
-                  style={
-                    activeTimeline !== i
-                      ? {}
-                      : {
-                          boxShadow:
-                            card.color === "success"
-                              ? "0 0 12px rgba(6,214,160,0.2)"
-                              : card.color === "danger"
-                              ? "0 0 12px rgba(239,71,111,0.2)"
-                              : "0 0 12px rgba(255,107,43,0.2)",
-                        }
-                  }
                 >
-                  <div
-                    className={`aspect-[3/4] rounded-lg relative overflow-hidden ${
-                      card.color === "danger" ? "grayscale" : ""
-                    }`}
-                  >
-                    <img src={card.img} alt="Lokyn" className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="aspect-[3/4] rounded-lg relative overflow-hidden">
+                    <img src={card.img} alt="Lokyn" className="absolute inset-0 w-full h-full object-cover" style={{ mixBlendMode: "screen" }} />
                   </div>
                   <div className="px-2 pb-2 pt-1">
                     <p className="text-sm font-bold">{card.date}</p>

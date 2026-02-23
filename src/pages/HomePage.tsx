@@ -1,19 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
 // StatBar supprimé
 import BottomNav from "../components/BottomNav";
 import { useTodayHabits, useCompleteHabit, useUserProfile, Habit } from "@/hooks/useHabits";
 import { useLokynState, MESSAGES_BY_ETAT } from "@/hooks/useLokynState";
 import { supabase } from "@/integrations/supabase/client";
-
-const ICON_MAP: Record<string, string> = {
-  sport: "fitness_center",
-  projet: "work",
-  connaissance: "menu_book",
-  addiction: "block",
-  mental: "self_improvement",
-  nutrition: "water_drop",
-};
+import { ICON_MAP } from "@/lib/utils";
 
 const fireConfetti = () =>
   confetti({
@@ -35,13 +27,45 @@ const HomePage = () => {
   const [joursInactif, setJoursInactif] = useState(0);
 
   const { habits, refresh, setHabits } = useTodayHabits();
-  const { profile, refresh: refreshProfile } = useUserProfile();
+  const { profile, refresh: refreshProfile, setProfile } = useUserProfile();
   const combinedRefresh = useCallback(() => {
     return Promise.all([refresh(), refreshProfile()]);
   }, [refresh, refreshProfile]);
-  const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits);
+  const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits, undefined, setProfile);
+
   const xpActuel = profile?.xp_total || 0;
-  const xpPercent = Math.min(Math.round((xpActuel % 100)), 100);
+  const xpPercent = Math.min(Math.round(xpActuel % 100), 100);
+
+  // XP bar animation state
+  const [xpAnimTarget, setXpAnimTarget] = useState(0);
+  const prevNiveauRef = useRef<number>(-1);
+
+  // Level up animation: 2-phase fill
+  useEffect(() => {
+    if (!profile) return;
+    const currentNiveau = profile.niveau || 1;
+    const currentXpPercent = Math.min(Math.round((profile.xp_total % 100)), 100);
+    let t1: ReturnType<typeof setTimeout>;
+    let t2: ReturnType<typeof setTimeout>;
+
+    if (prevNiveauRef.current !== -1 && currentNiveau > prevNiveauRef.current) {
+      // Phase 1: fill to 100%
+      setXpAnimTarget(100);
+      t1 = setTimeout(() => {
+        // Phase 2: reset to 0, then fill to new %
+        setXpAnimTarget(0);
+        t2 = setTimeout(() => setXpAnimTarget(currentXpPercent), 50);
+      }, 600);
+    } else {
+      setXpAnimTarget(currentXpPercent);
+    }
+    prevNiveauRef.current = currentNiveau;
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [profile?.niveau, profile?.xp_total]);
 
   const doneCount = habits.filter((h) => h.completed).length;
   const totalCount = habits.length;
@@ -54,46 +78,57 @@ const HomePage = () => {
     accountAgeDays,
   });
 
-  // Fetch accountAgeDays and joursInactif on mount
+  // Fetch accountAgeDays and joursInactif on mount (with localStorage cache)
   useEffect(() => {
     async function fetchLokynData() {
-      // Account age from user_profile.created_at
-      const { data: profileData } = await supabase
-        .from("user_profile")
-        .select("created_at")
-        .eq("id", "local_user")
-        .maybeSingle() as any;
+      // accountAgeDays — cache for 24h
+      const cachedAge = localStorage.getItem("lokyn_account_age_days");
+      const cachedAgeTime = localStorage.getItem("lokyn_account_age_updated");
+      const ageMs = cachedAgeTime ? Date.now() - parseInt(cachedAgeTime) : Infinity;
 
-      if (profileData?.created_at) {
-        const created = new Date(profileData.created_at);
-        const now = new Date();
-        const diffDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-        setAccountAgeDays(diffDays);
-      }
+      if (cachedAge !== null && ageMs < 86_400_000) {
+        setAccountAgeDays(parseInt(cachedAge));
+      } else {
+        const { data: profileData } = await supabase
+          .from("user_profile")
+          .select("created_at")
+          .eq("id", "local_user")
+          .maybeSingle() as any;
 
-      // Count consecutive inactive days before today
-      const today = new Date();
-      const pastDates = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() - (i + 1));
-        return d.toISOString().split("T")[0];
-      });
-
-      const { data: completions } = await supabase
-        .from("completions")
-        .select("date")
-        .in("date", pastDates) as any;
-
-      const completionDates = new Set((completions || []).map((c: any) => c.date));
-      let inactif = 0;
-      for (const date of pastDates) {
-        if (!completionDates.has(date)) {
-          inactif++;
-        } else {
-          break;
+        if (profileData?.created_at) {
+          const diffDays = Math.floor((Date.now() - new Date(profileData.created_at).getTime()) / 86_400_000);
+          setAccountAgeDays(diffDays);
+          localStorage.setItem("lokyn_account_age_days", String(diffDays));
+          localStorage.setItem("lokyn_account_age_updated", String(Date.now()));
         }
       }
-      setJoursInactif(inactif);
+
+      // joursInactif — cache invalidated on each completion/uncompletion
+      const cachedInactif = localStorage.getItem("lokyn_jours_inactif");
+      if (cachedInactif !== null) {
+        setJoursInactif(parseInt(cachedInactif));
+      } else {
+        const today = new Date();
+        const pastDates = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(today);
+          d.setDate(today.getDate() - (i + 1));
+          return d.toISOString().split("T")[0];
+        });
+
+        const { data: completions } = await supabase
+          .from("completions")
+          .select("date")
+          .in("date", pastDates) as any;
+
+        const completionDates = new Set((completions || []).map((c: any) => c.date));
+        let inactif = 0;
+        for (const date of pastDates) {
+          if (!completionDates.has(date)) inactif++;
+          else break;
+        }
+        setJoursInactif(inactif);
+        localStorage.setItem("lokyn_jours_inactif", String(inactif));
+      }
     }
 
     fetchLokynData();
@@ -121,9 +156,9 @@ const HomePage = () => {
   const handleCheckbox = useCallback(
     (habit: Habit) => {
       if (habit.completed) {
-        uncomplete(habit.id);
+        uncomplete(habit.id, habit.xp_estime);
       } else {
-        complete(habit.id);
+        complete(habit.id, habit.xp_estime);
         fireConfetti();
       }
     },
@@ -184,7 +219,7 @@ const HomePage = () => {
           {/* Lokyn state label */}
           <p className="text-xs text-muted-foreground italic mt-1 text-center">{lokyn.label}</p>
 
-          {/* Vitality Bars */}
+          {/* XP Bar */}
           <div className="w-full max-w-sm px-6 mt-8">
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2">
@@ -203,7 +238,7 @@ const HomePage = () => {
               <div
                 className="h-full bg-primary rounded-full transition-all ease-out"
                 style={{
-                  width: `${xpPercent}%`,
+                  width: `${xpAnimTarget}%`,
                   transitionDuration: "800ms",
                   boxShadow: "0 0 12px hsl(18 100% 56% / 0.6)",
                 }}
@@ -235,7 +270,7 @@ const HomePage = () => {
               >
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3">
                   <span className="material-symbols-outlined text-primary">
-                    {ICON_MAP[habit.categorie] || "star"}
+                    {ICON_MAP[habit.categorie]?.icon || "star"}
                   </span>
                 </div>
                 <p className="font-bold text-sm mb-3">{habit.nom}</p>

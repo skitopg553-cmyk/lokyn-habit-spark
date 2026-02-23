@@ -35,7 +35,7 @@ const customizationItems: Record<string, { name: string; icon: string; unlocked:
 };
 
 const ProfilePage = () => {
-  const { profile } = useUserProfile();
+  const { profile, refresh: refreshProfile } = useUserProfile();
   const { habits } = useTodayHabits();
   const [objectives_, setObjectives] = useState(objectives);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -51,7 +51,6 @@ const ProfilePage = () => {
   const [mounted, setMounted] = useState(false);
   const [showPrenomEdit, setShowPrenomEdit] = useState(false);
   const [newPrenom, setNewPrenom] = useState("");
-  const { refresh: refreshProfile } = useUserProfile();
 
   const handleSavePrenom = async () => {
     if (!newPrenom.trim()) return;
@@ -122,12 +121,11 @@ const ProfilePage = () => {
           <div
             className="w-[180px] h-[180px] rounded-full bg-surface border-4 border-primary flex items-center justify-center overflow-hidden cursor-pointer select-none"
             style={{
-              animation: "avatar-glow-pulse 3s ease-in-out infinite",
               transform: avatarBounce ? "scale(1.05)" : "scale(1)",
               transition: "transform 300ms cubic-bezier(0.68,-0.55,0.27,1.55)",
             }}
           >
-            <img src={lokynNeutre} alt="Lokyn" className="w-32 h-32 object-contain" style={{ filter: "drop-shadow(0 4px 12px rgba(255,107,43,0.3))" }} />
+            <img src={lokynNeutre} alt="Lokyn" className="w-32 h-32 object-contain" style={{ mixBlendMode: "screen" }} />
           </div>
           <div className="absolute bottom-2 right-2 bg-primary text-primary-foreground rounded-full p-2 border-4 border-background">
             <span className="material-symbols-outlined text-sm block fill-1">verified</span>

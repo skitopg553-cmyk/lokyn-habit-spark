@@ -7,7 +7,6 @@ import rayonnant from "@/assets/lokyn-rayonnant.png.jpg";
 import streakImg from "@/assets/lokyn-streak.png.jpg";
 import decu from "@/assets/lokyn-decu.png.jpg";
 import chute from "@/assets/lokyn-chute.png.jpg";
-import enerve from "@/assets/lokyn-enerve.png.jpg"; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 export type LokynEtat =
   | "oeuf-1"

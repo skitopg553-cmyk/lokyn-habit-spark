@@ -1,6 +1,7 @@
 import { useState } from "react";
 import BottomNav from "../components/BottomNav";
 import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
+import lokynChute from "@/assets/lokyn-chute.png.jpg";
 
 const mockFriends = [
   {
@@ -116,11 +117,10 @@ const SocialPage = () => {
                   : "border-destructive bg-destructive/10"
               }`}>
                 <img
-                  src={lokynNeutre}
+                  src={friend.status === "en_forme" ? lokynNeutre : lokynChute}
                   alt="Lokyn"
-                  className={`w-10 h-10 object-contain ${
-                    friend.status === "en_galere" ? "grayscale opacity-60" : ""
-                  }`}
+                  className="w-10 h-10 object-contain"
+                  style={{ mixBlendMode: "screen" }}
                 />
               </div>
               <div className="flex-1 min-w-0">
