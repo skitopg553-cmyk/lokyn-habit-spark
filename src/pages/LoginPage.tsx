@@ -25,7 +25,7 @@ const LoginPage = () => {
                 navigate("/home", { replace: true });
             }
         } else {
-            const { error } = await signUp(email, password);
+            const { error, prenom } = await signUp(email, password);
             if (error) {
                 if (error.message.includes("already registered")) {
                     setError("Ce compte existe déjà. Connecte-toi.");
@@ -35,7 +35,11 @@ const LoginPage = () => {
                     setError(error.message);
                 }
             } else {
-                navigate("/onboarding", { replace: true });
+                if (prenom === "Alex") {
+                    navigate("/onboarding", { replace: true });
+                } else {
+                    navigate("/home", { replace: true });
+                }
             }
         }
 
@@ -73,8 +77,8 @@ const LoginPage = () => {
                 <button
                     onClick={() => { setMode("signin"); setError(null); }}
                     className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${mode === "signin"
-                            ? "bg-primary text-white"
-                            : "text-muted-foreground"
+                        ? "bg-primary text-white"
+                        : "text-muted-foreground"
                         }`}
                 >
                     Connexion
@@ -82,8 +86,8 @@ const LoginPage = () => {
                 <button
                     onClick={() => { setMode("signup"); setError(null); }}
                     className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${mode === "signup"
-                            ? "bg-primary text-white"
-                            : "text-muted-foreground"
+                        ? "bg-primary text-white"
+                        : "text-muted-foreground"
                         }`}
                 >
                     Créer un compte

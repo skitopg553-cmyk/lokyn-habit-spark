@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { JOUR_MAP } from "@/lib/utils";
 import lokynNeutre from "@/assets/lokyn-neutre.png";
@@ -72,6 +73,8 @@ const StatsPage = () => {
   const scoreRef = useRef<number | null>(null);
 
   const { profile } = useUserProfile();
+  const { user } = useAuth();
+  const userId = user?.id ?? "local_user";
   const streak = profile?.streak_actuel || 0;
   const record = profile?.streak_record || 0;
   const isRecord = streak > 0 && streak === record;
@@ -80,7 +83,7 @@ const StatsPage = () => {
   const weekDays = getWeekDays();
   const weekDateStrs = weekDays.map(d => d.dateStr);
   const todayIndex = weekDays.findIndex(d => d.isToday);
-  const [disciplineReal, setDisciplineReal] = useState<number[]>([0,0,0,0,0,0,0]);
+  const [disciplineReal, setDisciplineReal] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Score = today's discipline % (same source as bars → always in sync)
@@ -114,13 +117,13 @@ const StatsPage = () => {
       const { data: habits } = await supabase
         .from("habits")
         .select("id, frequence, jours")
-        .eq("user_id", "local_user")
+        .eq("user_id", userId)
         .eq("actif", true) as any;
 
       const allHabits = habits || [];
 
       if (allHabits.length === 0) {
-        setDisciplineReal([0,0,0,0,0,0,0]);
+        setDisciplineReal([0, 0, 0, 0, 0, 0, 0]);
         return;
       }
 
@@ -219,11 +222,10 @@ const StatsPage = () => {
             <button
               key={p}
               onClick={() => handlePeriodChange(p)}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                activePeriod === p
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${activePeriod === p
                   ? "bg-primary text-primary-foreground"
                   : "bg-surface text-muted-foreground"
-              }`}
+                }`}
             >
               {p}
             </button>
@@ -252,11 +254,10 @@ const StatsPage = () => {
                 onClick={() => setActiveTimeline(i)}
               >
                 <div
-                  className={`relative rounded-xl p-1 overflow-hidden transition-all duration-200 ${
-                    activeTimeline === i
+                  className={`relative rounded-xl p-1 overflow-hidden transition-all duration-200 ${activeTimeline === i
                       ? "border-2 border-primary scale-105 bg-card"
                       : "bg-card opacity-70"
-                  }`}
+                    }`}
                 >
                   <div className="aspect-[3/4] rounded-lg relative overflow-hidden">
                     <img src={card.img} alt="Lokyn" className="absolute inset-0 w-full h-full object-cover" />
@@ -264,13 +265,12 @@ const StatsPage = () => {
                   <div className="px-2 pb-2 pt-1">
                     <p className="text-sm font-bold">{card.date}</p>
                     <p
-                      className={`text-xs font-medium ${
-                        card.color === "success"
+                      className={`text-xs font-medium ${card.color === "success"
                           ? "text-success"
                           : card.color === "danger"
-                          ? "text-destructive"
-                          : "text-primary"
-                      }`}
+                            ? "text-destructive"
+                            : "text-primary"
+                        }`}
                     >
                       {card.status}
                     </p>
@@ -410,32 +410,30 @@ const StatsPage = () => {
                 onClick={() => handleAchievementTap(i, badge.unlocked)}
               >
                 <div
-                  className={`w-20 h-20 rounded-full flex items-center justify-center border-2 transition-transform ${
-                    badge.unlocked
+                  className={`w-20 h-20 rounded-full flex items-center justify-center border-2 transition-transform ${badge.unlocked
                       ? badge.color === "primary"
                         ? "bg-primary/20 border-primary shadow-[0_0_15px_hsl(18_100%_56%_/_0.3)]"
                         : "bg-success/20 border-success shadow-[0_0_15px_hsl(163_96%_43%_/_0.3)]"
                       : "bg-surface border-muted-foreground/30 opacity-40"
-                  }`}
+                    }`}
                   style={{
                     transform:
                       achievementBounce === i
                         ? "scale(1.2)"
                         : shakeIndex === i
-                        ? undefined
-                        : "scale(1)",
+                          ? undefined
+                          : "scale(1)",
                     transition: "transform 300ms cubic-bezier(0.68,-0.55,0.27,1.55)",
                     animation: shakeIndex === i ? "shake-x 0.3s ease" : undefined,
                   }}
                 >
                   <span
-                    className={`material-symbols-outlined text-3xl ${
-                      badge.unlocked
+                    className={`material-symbols-outlined text-3xl ${badge.unlocked
                         ? badge.color === "primary"
                           ? "text-primary"
                           : "text-success"
                         : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     {badge.icon}
                   </span>

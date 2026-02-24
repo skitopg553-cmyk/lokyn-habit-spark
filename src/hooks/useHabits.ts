@@ -1,7 +1,7 @@
-import { useState, useCallback, Dispatch, SetStateAction } from "react";
+import { useCallback, Dispatch, SetStateAction } from "react";
+import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { toDateStr, JOUR_MAP, JOUR_LABELS } from "@/lib/utils";
 
 // --------------- Helper to get current userId ----------------
@@ -80,9 +80,14 @@ async function fetchTodayHabits(dateStr: string): Promise<Habit[]> {
     return false;
   });
 
+  const userHabitIds = (allHabits || []).map((h: any) => h.id);
+
+  if (userHabitIds.length === 0) return [];
+
   const { data: completions } = await supabase
     .from("completions")
     .select("habit_id")
+    .in("habit_id", userHabitIds)
     .eq("date", dateStr) as any;
 
   const completedIds: string[] = (completions || []).map((c: any) => c.habit_id);
@@ -279,22 +284,23 @@ export function useCompleteHabit(
 export async function updateStreak(userId?: string) {
   const uid = userId ?? await getAuthUserId();
 
-  const { data: completions } = await supabase
-    .from("completions")
-    .select("date, habit_id")
-    .order("date", { ascending: false }) as any;
-
   const habitsQuery = supabase
     .from("habits")
-    .select("id, frequence, jours, date_creation");
-  const { data: allHabits } = await (uid === "local_user"
-    ? habitsQuery.eq("user_id", uid)
-    : habitsQuery.eq("user_id", uid)) as any;
+    .select("id, frequence, jours, date_creation") as any;
+  const { data: allHabits } = await habitsQuery.eq("user_id", uid);
 
   const allRecurring = (allHabits || []).filter((h: any) =>
     h.frequence === "daily" || h.frequence === "recurring"
   );
   if (!allRecurring.length) return;
+
+  const userHabitIds = allRecurring.map((h: any) => h.id);
+
+  const { data: completions } = await supabase
+    .from("completions")
+    .select("date, habit_id")
+    .in("habit_id", userHabitIds)
+    .order("date", { ascending: false }) as any;
 
   let streak = 0;
   const today = new Date();
@@ -325,10 +331,13 @@ export async function updateStreak(userId?: string) {
     }
   }
 
-  const profileQuery = supabase.from("user_profile").select("streak_record");
-  const { data: profile } = await (uid === "local_user"
-    ? profileQuery.eq("id", "local_user")
-    : profileQuery.eq("auth_id", uid)).maybeSingle() as any;
+  let profileQuery = supabase.from("user_profile").select("streak_record") as any;
+  if (uid === "local_user") {
+    profileQuery = profileQuery.eq("id", "local_user");
+  } else {
+    profileQuery = profileQuery.eq("auth_id", uid);
+  }
+  const { data: profile } = await profileQuery.maybeSingle() as any;
 
   const updateQ = supabase.from("user_profile").update({
     streak_actuel: streak,
@@ -359,15 +368,24 @@ export async function applyXpDecay() {
     return d.toISOString().split("T")[0];
   });
 
+  const { data: userHabits } = await supabase.from("habits").select("id").eq("user_id", uid) as any;
+  const userHabitIds = (userHabits || []).map((h: any) => h.id);
+
+  if (userHabitIds.length === 0) return;
+
   const { data: completions } = await supabase
     .from("completions")
     .select("date")
+    .in("habit_id", userHabitIds)
     .in("date", last7) as any;
 
-  const profileQuery = supabase.from("user_profile").select("xp_total, niveau, last_decay_date");
-  const { data: profile } = await (uid === "local_user"
-    ? profileQuery.eq("id", "local_user")
-    : profileQuery.eq("auth_id", uid)).maybeSingle() as any;
+  let profileQuery = supabase.from("user_profile").select("xp_total, niveau, last_decay_date") as any;
+  if (uid === "local_user") {
+    profileQuery = profileQuery.eq("id", "local_user");
+  } else {
+    profileQuery = profileQuery.eq("auth_id", uid);
+  }
+  const { data: profile } = await profileQuery.maybeSingle() as any;
 
   if (!profile) return;
   if (profile.last_decay_date === todayStr) return;
@@ -408,10 +426,13 @@ export async function applyXpDecay() {
 
 async function fetchUserProfile(): Promise<UserProfile | null> {
   const uid = await getAuthUserId();
-  const query = supabase.from("user_profile").select("*");
-  const { data } = await (uid === "local_user"
-    ? query.eq("id", "local_user")
-    : query.eq("auth_id", uid)).maybeSingle() as any;
+  let query = supabase.from("user_profile").select("*") as any;
+  if (uid === "local_user") {
+    query = query.eq("id", "local_user");
+  } else {
+    query = query.eq("auth_id", uid);
+  }
+  const { data } = await query.maybeSingle() as any;
   return data ?? null;
 }
 
@@ -456,9 +477,16 @@ export function useDaysWithActivity(weekDates: string[]) {
   const { data: activeDates = [] } = useQuery({
     queryKey: ["activity", weekDates.join(",")],
     queryFn: async () => {
+      const uid = await getAuthUserId();
+      const { data: userHabits } = await supabase.from("habits").select("id").eq("user_id", uid) as any;
+      const userHabitIds = (userHabits || []).map((h: any) => h.id);
+
+      if (userHabitIds.length === 0) return [];
+
       const { data } = await supabase
         .from("completions")
         .select("date")
+        .in("habit_id", userHabitIds)
         .in("date", weekDates) as any;
       return [...new Set((data || []).map((c: any) => c.date))] as string[];
     },
@@ -466,8 +494,6 @@ export function useDaysWithActivity(weekDates: string[]) {
   });
   return activeDates;
 }
-
-// --------------- createHabit ----------------
 
 export async function createHabit(formData: {
   nom: string;
@@ -480,6 +506,20 @@ export async function createHabit(formData: {
   xp_estime: number;
 }) {
   const uid = await getAuthUserId();
+
+  const { data: existing } = await supabase
+    .from("habits")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("nom", formData.nom)
+    .eq("actif", true)
+    .maybeSingle() as any;
+
+  if (existing) {
+    toast.error("Cette habitude existe déjà et est active.");
+    return false;
+  }
+
   const { error } = await supabase.from("habits").insert({
     user_id: uid,
     ...formData,

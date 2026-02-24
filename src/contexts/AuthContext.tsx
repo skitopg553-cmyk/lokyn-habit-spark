@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null; prenom?: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -44,8 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    let prenom = null;
+    if (!error && data?.user) {
+      // Small delay to ensure the Postgres trigger has finished running
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const q = supabase.from("user_profile").select("prenom") as any;
+      const { data: profile } = await q.eq("auth_id", data.user.id).maybeSingle();
+      prenom = profile?.prenom;
+    }
+    return { error, prenom };
   };
 
   const signOut = async () => {
