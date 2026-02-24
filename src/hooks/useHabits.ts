@@ -183,7 +183,7 @@ export function useCompleteHabit(
         const { data: profileData } = await profileQb.maybeSingle() as any;
         const newXp = (profileData?.xp_total || 0) + habit.xp_estime;
         const newNiveau = Math.floor(newXp / 100) + 1;
-        const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any);
+        const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any) as any;
         if (userId === "local_user") {
           await updateQ.eq("id", "local_user");
         } else {
@@ -234,7 +234,7 @@ export function useCompleteHabit(
 
       if (!existing) return;
 
-      const { error } = await supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr);
+      const { error } = await (supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr) as any);
       if (error) throw error;
 
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
@@ -246,7 +246,7 @@ export function useCompleteHabit(
         const { data: profileData } = await profileQb.maybeSingle() as any;
         const newXp = Math.max(0, (profileData?.xp_total || 0) - habit.xp_estime);
         const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
-        const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any);
+        const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any) as any;
         if (userId === "local_user") {
           await updateQ.eq("id", "local_user");
         } else {
@@ -333,7 +333,7 @@ export async function updateStreak(userId?: string) {
   const updateQ = supabase.from("user_profile").update({
     streak_actuel: streak,
     streak_record: Math.max(streak, profile?.streak_record || 0),
-  } as any);
+  } as any) as any;
   if (uid === "local_user") {
     await updateQ.eq("id", "local_user");
   } else {
@@ -396,7 +396,7 @@ export async function applyXpDecay() {
     xp_total: newXp,
     niveau: newNiveau,
     last_decay_date: todayStr,
-  } as any);
+  } as any) as any;
   if (uid === "local_user") {
     await updateQ.eq("id", "local_user");
   } else {

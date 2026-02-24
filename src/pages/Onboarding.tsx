@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import lokynNeutre from "@/assets/lokyn-neutre.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +20,7 @@ const OnboardingPage = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const toggleObjectif = (id: string) => {
     setSelected(prev =>
@@ -29,14 +31,12 @@ const OnboardingPage = () => {
   };
 
   const handleFinish = async () => {
-    const q = supabase
-      .from("user_profile")
-      .update({ prenom: prenom || "Toi", objectifs: selected } as any) as any;
-    if (user?.id) {
-      await q.eq("auth_id", user.id);
-    } else {
-      await q.eq("id", "local_user");
-    }
+    const record = user?.id
+      ? { auth_id: user.id, prenom: prenom || "Toi", objectifs: selected }
+      : { id: "local_user", prenom: prenom || "Toi", objectifs: selected };
+    const conflictCol = user?.id ? "auth_id" : "id";
+    await (supabase.from("user_profile").upsert(record as any, { onConflict: conflictCol }) as any);
+    queryClient.invalidateQueries({ queryKey: ["profile-prenom"] });
     navigate("/home");
   };
 

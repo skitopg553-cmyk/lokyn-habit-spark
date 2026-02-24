@@ -126,6 +126,10 @@ const HomePage = () => {
           setAccountAgeDays(diffDays);
           localStorage.setItem("lokyn_account_age_days", String(diffDays));
           localStorage.setItem("lokyn_account_age_updated", String(Date.now()));
+        } else {
+          setAccountAgeDays(99);
+          localStorage.setItem("lokyn_account_age_days", "99");
+          localStorage.setItem("lokyn_account_age_updated", String(Date.now()));
         }
       }
 

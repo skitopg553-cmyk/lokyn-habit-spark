@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthGuardProps {
     children: ReactNode;
@@ -8,8 +10,24 @@ interface AuthGuardProps {
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
     const { session, loading } = useAuth();
+    const location = useLocation();
 
-    if (loading) {
+    const { data: prenom, isLoading: prenomLoading } = useQuery<string | null>({
+        queryKey: ["profile-prenom", session?.user?.id],
+        queryFn: async () => {
+            if (!session) return null;
+            const { data } = await (supabase
+                .from("user_profile")
+                .select("prenom")
+                .eq("auth_id", session.user.id)
+                .maybeSingle() as any);
+            return data?.prenom ?? null;
+        },
+        enabled: !!session,
+        staleTime: 30000,
+    });
+
+    if (loading || (session && prenomLoading)) {
         return (
             <div
                 className="flex min-h-screen items-center justify-center"
@@ -27,6 +45,10 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
 
     if (!session) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (prenom === "Alex" && location.pathname !== "/onboarding") {
+        return <Navigate to="/onboarding" replace />;
     }
 
     return <>{children}</>;

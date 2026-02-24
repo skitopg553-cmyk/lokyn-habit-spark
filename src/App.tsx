@@ -6,7 +6,6 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import Index from "./pages/Index";
 import HomePage from "./pages/HomePage";
 import HabitsPage from "./pages/HabitsPage";
 import NewHabitPage from "./pages/NewHabitPage";
