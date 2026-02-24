@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
-import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
+import lokynNeutre from "@/assets/lokyn-neutre.png";
 import { createHabit } from "@/hooks/useHabits";
 
 const categories = [

@@ -3,10 +3,10 @@ import BottomNav from "../components/BottomNav";
 import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
 import { JOUR_MAP } from "@/lib/utils";
-import lokynNeutre from "@/assets/lokyn-neutre.png.png";
-import lokynRayonnant from "@/assets/lokyn-rayonnant.png.png";
-import lokynDecu from "@/assets/lokyn-decu.png.png";
-import lokynChute from "@/assets/lokyn-chute.png.png";
+import lokynNeutre from "@/assets/lokyn-neutre.png";
+import lokynRayonnant from "@/assets/lokyn-rayonnant.png";
+import lokynDecu from "@/assets/lokyn-decu.png";
+import lokynChute from "@/assets/lokyn-chute.png";
 
 const periods = ["7J", "30J", "Tout"] as const;
 

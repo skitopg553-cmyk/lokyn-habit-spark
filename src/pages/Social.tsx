@@ -1,7 +1,7 @@
 import { useState } from "react";
 import BottomNav from "../components/BottomNav";
-import lokynRayonnant from "@/assets/lokyn-rayonnant.png.png";
-import lokynChute from "@/assets/lokyn-chute.png.png";
+import lokynRayonnant from "@/assets/lokyn-rayonnant.png";
+import lokynChute from "@/assets/lokyn-chute.png";
 
 const mockFriends = [
   {

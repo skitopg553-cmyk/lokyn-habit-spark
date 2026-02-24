@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, useTodayHabits } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
-import lokynNeutre from "@/assets/lokyn-neutre.png.png";
+import lokynNeutre from "@/assets/lokyn-neutre.png";
 
 const objectives = ["Fitness", "Études", "Nutrition"];
 
