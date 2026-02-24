@@ -179,16 +179,31 @@ export function useCompleteHabit(
         .maybeSingle() as any;
 
       if (!existing) {
-        const { error } = await supabase.from("completions").insert({ habit_id: habitId, date: dateStr } as any);
+        const { error } = await supabase.from("completions").insert({ habit_id: habitId, date: dateStr, user_id: userId } as any);
         if (error) throw error;
       }
 
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const { data: profileData } = await supabase.from("user_profile").select("xp_total").eq("id", userId).maybeSingle() as any;
+        let profileQuery = supabase.from("user_profile").select("xp_total") as any;
+        if (userId === "local_user") {
+          profileQuery = profileQuery.eq("id", "local_user");
+        } else {
+          profileQuery = profileQuery.eq("auth_id", userId);
+        }
+        const { data: profileData } = await profileQuery.maybeSingle() as any;
         const newXp = (profileData?.xp_total || 0) + habit.xp_estime;
         const newNiveau = Math.floor(newXp / 100) + 1;
-        await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", userId);
+        const updatePayload: any = { xp_total: newXp, niveau: newNiveau };
+        if (userId === "local_user") updatePayload.id = "local_user";
+        else updatePayload.auth_id = userId;
+
+        const updateQ = supabase.from("user_profile").update(updatePayload) as any;
+        if (userId === "local_user") {
+          await updateQ.eq("id", "local_user");
+        } else {
+          await updateQ.eq("auth_id", userId);
+        }
       }
 
       await updateStreak(userId);
@@ -239,10 +254,25 @@ export function useCompleteHabit(
 
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const { data: profileData } = await supabase.from("user_profile").select("xp_total").eq("id", userId).maybeSingle() as any;
+        let profileQuery = supabase.from("user_profile").select("xp_total") as any;
+        if (userId === "local_user") {
+          profileQuery = profileQuery.eq("id", "local_user");
+        } else {
+          profileQuery = profileQuery.eq("auth_id", userId);
+        }
+        const { data: profileData } = await profileQuery.maybeSingle() as any;
         const newXp = Math.max(0, (profileData?.xp_total || 0) - habit.xp_estime);
         const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
-        await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", userId);
+        const updatePayload: any = { xp_total: newXp, niveau: newNiveau };
+        if (userId === "local_user") updatePayload.id = "local_user";
+        else updatePayload.auth_id = userId;
+
+        const updateQ = supabase.from("user_profile").update(updatePayload) as any;
+        if (userId === "local_user") {
+          await updateQ.eq("id", "local_user");
+        } else {
+          await updateQ.eq("auth_id", userId);
+        }
       }
 
       await updateStreak(userId);
@@ -317,12 +347,27 @@ export async function updateStreak(userId?: string) {
     }
   }
 
-  const { data: profile } = await supabase.from("user_profile").select("streak_record").eq("id", uid).maybeSingle() as any;
+  let profileQuery = supabase.from("user_profile").select("streak_record") as any;
+  if (uid === "local_user") {
+    profileQuery = profileQuery.eq("id", "local_user");
+  } else {
+    profileQuery = profileQuery.eq("auth_id", uid);
+  }
+  const { data: profile } = await profileQuery.maybeSingle() as any;
 
-  await supabase.from("user_profile").update({
+  const updatePayload: any = {
     streak_actuel: streak,
     streak_record: Math.max(streak, profile?.streak_record || 0),
-  } as any).eq("id", uid);
+  };
+  if (uid === "local_user") updatePayload.id = "local_user";
+  else updatePayload.auth_id = uid;
+
+  const updateQ = supabase.from("user_profile").update(updatePayload) as any;
+  if (uid === "local_user") {
+    await updateQ.eq("id", "local_user");
+  } else {
+    await updateQ.eq("auth_id", uid);
+  }
 }
 
 // --------------- applyXpDecay (dynamic userId) ----------------
@@ -354,7 +399,13 @@ export async function applyXpDecay() {
     .in("habit_id", userHabitIds)
     .in("date", last7) as any;
 
-  const { data: profile } = await supabase.from("user_profile").select("xp_total, niveau, last_decay_date").eq("id", uid).maybeSingle() as any;
+  let profileQuery = supabase.from("user_profile").select("xp_total, niveau, last_decay_date") as any;
+  if (uid === "local_user") {
+    profileQuery = profileQuery.eq("id", "local_user");
+  } else {
+    profileQuery = profileQuery.eq("auth_id", uid);
+  }
+  const { data: profile } = await profileQuery.maybeSingle() as any;
 
   if (!profile) return;
   if (profile.last_decay_date === todayStr) return;
@@ -379,18 +430,33 @@ export async function applyXpDecay() {
   const newXp = Math.max(0, (profile.xp_total || 0) - decay);
   const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
 
-  await supabase.from("user_profile").update({
+  const updatePayload: any = {
     xp_total: newXp,
     niveau: newNiveau,
     last_decay_date: todayStr,
-  } as any).eq("id", uid);
+  };
+  if (uid === "local_user") updatePayload.id = "local_user";
+  else updatePayload.auth_id = uid;
+
+  const updateQ = supabase.from("user_profile").update(updatePayload) as any;
+  if (uid === "local_user") {
+    await updateQ.eq("id", "local_user");
+  } else {
+    await updateQ.eq("auth_id", uid);
+  }
 }
 
 // --------------- useUserProfile (React Query) ----------------
 
 async function fetchUserProfile(): Promise<UserProfile | null> {
   const uid = await getAuthUserId();
-  const { data } = await supabase.from("user_profile").select("*").eq("id", uid).maybeSingle() as any;
+  let query = supabase.from("user_profile").select("*") as any;
+  if (uid === "local_user") {
+    query = query.eq("id", "local_user");
+  } else {
+    query = query.eq("auth_id", uid);
+  }
+  const { data } = await query.maybeSingle() as any;
   return data ?? null;
 }
 
