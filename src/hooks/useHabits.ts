@@ -531,19 +531,6 @@ export async function createHabit(formData: {
 }) {
   const uid = await getAuthUserId();
 
-  const { data: existing } = await supabase
-    .from("habits")
-    .select("id")
-    .eq("user_id", uid)
-    .eq("nom", formData.nom)
-    .eq("actif", true)
-    .maybeSingle() as any;
-
-  if (existing) {
-    toast.error("Cette habitude existe déjà et est active.");
-    return false;
-  }
-
   const { error } = await supabase.from("habits").insert({
     user_id: uid,
     ...formData,
