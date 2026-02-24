@@ -4,6 +4,7 @@ import BottomNav from "../components/BottomNav";
 import { useTodayHabits, useCompleteHabit, useUserProfile, Habit } from "@/hooks/useHabits";
 import { useLokynState, MESSAGES_BY_ETAT } from "@/hooks/useLokynState";
 import { supabase } from "@/integrations/supabase/client";
+import lokynDecu from "@/assets/lokyn-decu.png";
 import { ICON_MAP } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 
@@ -169,8 +170,22 @@ const HomePage = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => setBubbleVisible(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
+
+    const interval = setInterval(() => {
+      setBubbleVisible(false);
+      setTimeout(() => {
+        const pool = MESSAGES_BY_ETAT[lokyn.etat];
+        const randomMsg = pool[Math.floor(Math.random() * pool.length)];
+        setMessage(randomMsg);
+        setBubbleVisible(true);
+      }, 500); // Wait for fade out to complete
+    }, 8000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [lokyn.etat]);
 
   const handleLokynTap = useCallback(() => {
     haptic("light");
@@ -294,6 +309,8 @@ const HomePage = () => {
                 src={lokyn.image}
                 alt="Lokyn"
                 className="w-48 h-48 object-contain select-none"
+                width={192}
+                height={192}
               />
             </div>
 
@@ -340,7 +357,13 @@ const HomePage = () => {
             </div>
             <div className="flex overflow-x-auto gap-4 px-6 pb-4 hide-scrollbar">
               {habits.length === 0 && (
-                <p className="text-muted-foreground text-sm italic">Aucune habitude — crée ta première !</p>
+                <div className="flex flex-col items-center justify-center p-6 bg-card border border-white/5 rounded-2xl w-full text-center mx-4">
+                  <img src={lokynDecu} alt="Lokyn s'ennuie" className="w-16 h-16 object-contain mb-3 opacity-80" loading="lazy" width={64} height={64} />
+                  <p className="text-muted-foreground text-sm font-medium mb-4">Lokyn s'ennuie. Crée ta première habitude.</p>
+                  <a href="/habits/new" className="bg-primary/20 text-primary font-bold px-4 py-2 rounded-xl text-sm transition-colors active:scale-95 border border-primary/30">
+                    Nouvelle habitude
+                  </a>
+                </div>
               )}
               {habits.map((habit, i) => (
                 <div

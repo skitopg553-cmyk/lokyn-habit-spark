@@ -11,10 +11,20 @@ const JOUR_LABELS_UPPER = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
 const PULL_THRESHOLD = 65;
 
 const HabitsPage = () => {
-  const weekDays = useMemo(() => getWeekDays(), []);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const todayIndex = weekDays.findIndex((d) => d.isToday);
   const [selectedDay, setSelectedDay] = useState(todayIndex >= 0 ? todayIndex : 0);
   const selectedDateStr = weekDays[selectedDay]?.dateStr;
+  const isSelectedFuture = weekDays[selectedDay]?.isFuture;
+
+  useEffect(() => {
+    if (weekOffset === 0 && todayIndex >= 0) {
+      setSelectedDay(todayIndex);
+    } else if (weekOffset !== 0) {
+      setSelectedDay(0);
+    }
+  }, [weekOffset, todayIndex]);
 
   const { habits, loading, refresh, setHabits } = useTodayHabits(selectedDateStr);
   const { refresh: refreshProfile, setProfile } = useUserProfile();
@@ -153,8 +163,33 @@ const HabitsPage = () => {
           transition: pullDistance === 0 ? "transform 300ms ease" : "none",
         }}
       >
+        {/* Calendar Nav */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-2" style={{ animation: "slide-down 300ms ease-out both" }}>
+          <button
+            type="button"
+            onClick={() => setWeekOffset(o => Math.max(o - 1, -4))}
+            disabled={weekOffset <= -4}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface border border-white/5 active:scale-95 transition-all text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:scale-100"
+            aria-label="Semaine précédente"
+          >
+            <span className="material-symbols-outlined text-lg">chevron_left</span>
+          </button>
+          <span className="text-sm font-bold tracking-wider text-muted-foreground uppercase text-center flex-1">
+            {weekOffset === 0 ? "Cette semaine" : weekOffset === -1 ? "Semaine dernière" : `Il y a ${Math.abs(weekOffset)} semaines`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setWeekOffset(o => Math.min(o + 1, 0))}
+            disabled={weekOffset >= 0}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface border border-white/5 active:scale-95 transition-all text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:scale-100"
+            aria-label="Semaine suivante"
+          >
+            <span className="material-symbols-outlined text-lg">chevron_right</span>
+          </button>
+        </div>
+
         {/* Header */}
-        <header className="p-6 pb-2 sticky top-0 bg-background/80 backdrop-blur-md z-10">
+        <header className="px-6 py-4 sticky top-0 bg-background/80 backdrop-blur-md z-10">
           <div className="flex justify-between items-center mb-1">
             <h1 className="text-3xl font-bold tracking-tight">Habitudes</h1>
             <div className="w-10 h-10 rounded-full border-2 border-primary/30 p-0.5 overflow-hidden">
@@ -197,17 +232,17 @@ const HabitsPage = () => {
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">{JOUR_LABELS_UPPER[i]}</span>
                 <div
                   className={`w-10 h-14 flex flex-col items-center justify-center rounded-xl transition-all duration-200 ${selectedDay === i
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                      : "bg-white/5 opacity-60"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                    : "bg-white/5 opacity-60"
                     }`}
                 >
                   <span className="text-lg font-bold">{day.num}</span>
                   <div
                     className={`w-1.5 h-1.5 rounded-full mt-1 ${selectedDay === i
-                        ? "bg-white"
-                        : activeDates.includes(day.dateStr)
-                          ? "bg-primary"
-                          : "bg-white/10"
+                      ? "bg-white"
+                      : activeDates.includes(day.dateStr)
+                        ? "bg-primary"
+                        : "bg-white/10"
                       }`}
                   />
                 </div>
@@ -232,10 +267,10 @@ const HabitsPage = () => {
               <div
                 key={habit.id}
                 className={`relative p-4 rounded-xl flex items-center gap-4 overflow-hidden transition-all duration-200 ${habit.completed
-                    ? "bg-white/5 border border-white/5 opacity-70"
-                    : habit.preuve_requise
-                      ? "bg-white/5 border-2 border-primary/20"
-                      : "bg-white/5 border border-white/5 shadow-sm"
+                  ? "bg-white/5 border border-white/5 opacity-70"
+                  : habit.preuve_requise
+                    ? "bg-white/5 border-2 border-primary/20"
+                    : "bg-white/5 border border-white/5 shadow-sm"
                   }`}
                 style={{
                   animation: `slide-up-fade 400ms ease-out ${i * 80}ms both`,
@@ -245,18 +280,18 @@ const HabitsPage = () => {
                       : undefined,
                 }}
                 onTouchStart={(e) => {
-                  if (!habit.completed) handleTouchStart(e, habit.id);
+                  if (!habit.completed && !isSelectedFuture) handleTouchStart(e, habit.id);
                   longPressTimer.current = setTimeout(() => {
                     haptic("medium");
                     setLongPressId(habit.id);
                   }, 600);
                 }}
                 onTouchMove={(e) => {
-                  handleTouchMove(e);
+                  if (!isSelectedFuture) handleTouchMove(e);
                   if (longPressTimer.current) clearTimeout(longPressTimer.current);
                 }}
                 onTouchEnd={() => {
-                  handleTouchEnd();
+                  if (!isSelectedFuture) handleTouchEnd();
                   if (longPressTimer.current) clearTimeout(longPressTimer.current);
                 }}
               >
@@ -286,20 +321,31 @@ const HabitsPage = () => {
                   </p>
                 </div>
                 {habit.completed ? (
-                  <div
-                    className="w-8 h-8 rounded-full bg-success text-success-foreground flex items-center justify-center cursor-pointer"
-                    onClick={() => { haptic("light"); uncomplete(habit.id, habit.xp_estime); }}
+                  <button
+                    type="button"
+                    disabled={isSelectedFuture}
+                    className="w-8 h-8 rounded-full bg-success text-success-foreground flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    onClick={() => { if (!isSelectedFuture) { haptic("light"); uncomplete(habit.id, habit.xp_estime); } }}
+                    aria-label="Annuler habitude"
                   >
                     <span className="material-symbols-outlined text-sm">check</span>
-                  </div>
+                  </button>
                 ) : habit.preuve_requise ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-primary/40 flex items-center justify-center">
+                  <button
+                    type="button"
+                    disabled={isSelectedFuture}
+                    className="w-8 h-8 rounded-full border-2 border-primary/40 flex items-center justify-center disabled:opacity-30"
+                    aria-label="Preuve requise"
+                  >
                     <span className="material-symbols-outlined text-primary text-sm">add_a_photo</span>
-                  </div>
+                  </button>
                 ) : (
-                  <div
-                    className="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center cursor-pointer"
-                    onClick={() => { haptic("light"); complete(habit.id, habit.xp_estime); }}
+                  <button
+                    type="button"
+                    disabled={isSelectedFuture}
+                    className="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    onClick={() => { if (!isSelectedFuture) { haptic("light"); complete(habit.id, habit.xp_estime); } }}
+                    aria-label="Valider habitude"
                   />
                 )}
               </div>

@@ -104,12 +104,22 @@ const NewHabitPage = () => {
     <div className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-x-hidden pb-24 bg-background text-foreground font-display">
       {/* Header */}
       <div className="flex items-center p-4 sticky top-0 bg-background/80 backdrop-blur-md z-10">
-        <a
-          href="/habits"
+        <button
+          type="button"
+          onClick={() => {
+            if (habitName.trim() !== "Séance salle" || objective.trim() !== "") {
+              if (window.confirm("Tu veux vraiment abandonner ?")) {
+                navigate(-1);
+              }
+            } else {
+              navigate(-1);
+            }
+          }}
           className="flex size-10 items-center justify-center cursor-pointer hover:bg-card rounded-full transition-colors"
+          aria-label="Retour"
         >
           <span className="material-symbols-outlined">arrow_back</span>
-        </a>
+        </button>
         <h1 className="text-lg font-bold flex-1 text-center pr-10">Nouvelle Habitude</h1>
       </div>
 
@@ -119,13 +129,13 @@ const NewHabitPage = () => {
           <h2 className="text-3xl font-bold text-center mb-8">Quel type d'habitude ?</h2>
           <div className="grid grid-cols-2 gap-4">
             {categories.map((cat) => (
-              <div
+              <button
+                type="button"
                 key={cat.id}
-                className={`flex flex-col p-4 rounded-xl gap-2 cursor-pointer transition-all duration-200 ${
-                  selectedCategory === cat.id
+                className={`flex flex-col p-4 rounded-xl gap-2 cursor-pointer transition-all duration-200 text-left ${selectedCategory === cat.id
                     ? "bg-card border-2 border-primary"
                     : "bg-card border-2 border-transparent hover:border-white/10"
-                }`}
+                  }`}
                 onClick={() => setSelectedCategory(cat.id)}
                 style={{
                   animation:
@@ -135,15 +145,14 @@ const NewHabitPage = () => {
                 }}
               >
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-lg mb-2 ${
-                    selectedCategory === cat.id ? "bg-primary/20 text-primary" : "bg-white/5 text-white/60"
-                  }`}
+                  className={`flex h-12 w-12 items-center justify-center rounded-lg mb-2 ${selectedCategory === cat.id ? "bg-primary/20 text-primary" : "bg-white/5 text-white/60"
+                    }`}
                 >
                   <span className="material-symbols-outlined text-3xl">{cat.icon}</span>
                 </div>
                 <p className="font-bold text-base">{cat.name}</p>
                 <p className="text-muted-foreground text-xs">{cat.desc}</p>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -153,8 +162,9 @@ const NewHabitPage = () => {
           <h3 className="text-xl font-bold">Décris ton habitude</h3>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm text-muted-foreground ml-1">Nom de l'habitude</label>
+              <label htmlFor="habitName" className="text-sm text-muted-foreground ml-1">Nom de l'habitude</label>
               <input
+                id="habitName"
                 className="w-full bg-card border-none rounded-xl p-4 text-foreground focus:ring-2 focus:ring-primary placeholder:text-muted-foreground/50 outline-none"
                 placeholder="ex : Travailler sur mon business"
                 value={habitName}
@@ -162,8 +172,9 @@ const NewHabitPage = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-muted-foreground ml-1">Objectif précis (optionnel)</label>
+              <label htmlFor="objectivePrecise" className="text-sm text-muted-foreground ml-1">Objectif précis (optionnel)</label>
               <input
+                id="objectivePrecise"
                 className="w-full bg-card border-none rounded-xl p-4 text-foreground focus:ring-2 focus:ring-primary placeholder:text-muted-foreground/50 outline-none"
                 placeholder="ex : 1h de travail, 10 pages, 5km..."
                 value={objective}
@@ -183,11 +194,10 @@ const NewHabitPage = () => {
               {(["once", "recurring", "weekly"] as FrequencyType[]).map((f) => (
                 <button
                   key={f}
-                  className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all duration-200 ${
-                    frequency === f
+                  className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all duration-200 ${frequency === f
                       ? "bg-muted text-foreground border border-white/10"
                       : "text-muted-foreground hover:text-foreground"
-                  }`}
+                    }`}
                   onClick={() => setFrequency(f)}
                 >
                   {f === "once" ? "UNE SEULE FOIS" : f === "recurring" ? "RÉCURRENT" : "X FOIS / SEMAINE"}
@@ -204,11 +214,10 @@ const NewHabitPage = () => {
                   {dayLabels.map((day, i) => (
                     <div key={i} className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => toggleDay(i)}>
                       <div
-                        className={`size-10 rounded-full flex items-center justify-center font-bold transition-all duration-200 ${
-                          selectedDays.includes(i)
+                        className={`size-10 rounded-full flex items-center justify-center font-bold transition-all duration-200 ${selectedDays.includes(i)
                             ? "bg-primary text-primary-foreground"
                             : "bg-white/5 text-muted-foreground border border-white/5"
-                        }`}
+                          }`}
                       >
                         {day.letter}
                       </div>
@@ -240,9 +249,8 @@ const NewHabitPage = () => {
               </div>
             </div>
             <div
-              className={`w-12 h-6 rounded-full relative p-1 cursor-pointer transition-colors duration-200 ${
-                reminderOn ? "bg-primary" : "bg-white/10"
-              }`}
+              className={`w-12 h-6 rounded-full relative p-1 cursor-pointer transition-colors duration-200 ${reminderOn ? "bg-primary" : "bg-white/10"
+                }`}
               onClick={() => setReminderOn(!reminderOn)}
             >
               <div className={`size-4 bg-white rounded-full transition-all duration-200 ${reminderOn ? "ml-auto" : "ml-0"}`} />
@@ -278,9 +286,8 @@ const NewHabitPage = () => {
             </div>
           </div>
           <div
-            className={`w-12 h-6 rounded-full relative p-1 cursor-pointer transition-colors duration-200 ${
-              proofRequired ? "bg-primary" : "bg-white/10"
-            }`}
+            className={`w-12 h-6 rounded-full relative p-1 cursor-pointer transition-colors duration-200 ${proofRequired ? "bg-primary" : "bg-white/10"
+              }`}
             onClick={() => setProofRequired(!proofRequired)}
           >
             <div className={`size-4 bg-white rounded-full transition-all duration-200 ${proofRequired ? "ml-auto" : "ml-0"}`} />

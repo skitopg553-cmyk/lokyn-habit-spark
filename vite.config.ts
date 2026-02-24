@@ -12,8 +12,22 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    headers: {
+      "Cache-Control": "public, max-age=31536000",
+    },
   },
   plugins: [
+    {
+      name: "png-cache-plugin",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.endsWith(".png")) {
+            res.setHeader("Cache-Control", "public, max-age=31536000");
+          }
+          next();
+        });
+      },
+    },
     react(),
     mode === "development" && componentTagger(),
     VitePWA({

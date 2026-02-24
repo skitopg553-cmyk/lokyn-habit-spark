@@ -40,20 +40,23 @@ export interface UserProfile {
 
 // --------------- Week helpers ----------------
 
-export function getWeekDays() {
+export function getWeekDays(weekOffset = 0) {
   const today = new Date();
   const dayOfWeek = today.getDay();
   const monday = new Date(today);
-  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
 
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
+    const dateStr = d.toISOString().split("T")[0];
+    const todayStr = new Date().toISOString().split("T")[0];
     return {
       date: d,
       label: JOUR_LABELS[i],
-      isToday: d.toDateString() === today.toDateString(),
-      dateStr: d.toISOString().split("T")[0],
+      isToday: dateStr === todayStr,
+      isFuture: dateStr > todayStr,
+      dateStr,
       num: d.getDate(),
     };
   });
@@ -181,11 +184,13 @@ export function useCompleteHabit(
 
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const profileQuery = supabase.from("user_profile").select("xp_total");
-        const profileQb = userId === "local_user"
-          ? profileQuery.eq("id", "local_user")
-          : profileQuery.eq("auth_id", userId);
-        const { data: profileData } = await profileQb.maybeSingle() as any;
+        let profileQuery = supabase.from("user_profile").select("xp_total") as any;
+        if (userId === "local_user") {
+          profileQuery = profileQuery.eq("id", "local_user");
+        } else {
+          profileQuery = profileQuery.eq("auth_id", userId);
+        }
+        const { data: profileData } = await profileQuery.maybeSingle() as any;
         const newXp = (profileData?.xp_total || 0) + habit.xp_estime;
         const newNiveau = Math.floor(newXp / 100) + 1;
         const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any) as any;
@@ -244,11 +249,13 @@ export function useCompleteHabit(
 
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const profileQuery = supabase.from("user_profile").select("xp_total");
-        const profileQb = userId === "local_user"
-          ? profileQuery.eq("id", "local_user")
-          : profileQuery.eq("auth_id", userId);
-        const { data: profileData } = await profileQb.maybeSingle() as any;
+        let profileQuery = supabase.from("user_profile").select("xp_total") as any;
+        if (userId === "local_user") {
+          profileQuery = profileQuery.eq("id", "local_user");
+        } else {
+          profileQuery = profileQuery.eq("auth_id", userId);
+        }
+        const { data: profileData } = await profileQuery.maybeSingle() as any;
         const newXp = Math.max(0, (profileData?.xp_total || 0) - habit.xp_estime);
         const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
         const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any) as any;

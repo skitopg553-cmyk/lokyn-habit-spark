@@ -15,9 +15,9 @@ const BottomNav = () => {
         <NavLink
           key={tab.path}
           to={tab.path}
+          aria-label={tab.label}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 transition-colors ${
-              isActive ? "text-primary" : "text-muted-foreground"
+            `flex flex-col items-center gap-1 transition-colors ${isActive ? "text-primary" : "text-muted-foreground"
             }`
           }
         >

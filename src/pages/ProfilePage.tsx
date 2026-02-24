@@ -136,7 +136,14 @@ const ProfilePage = () => {
               transition: "transform 300ms cubic-bezier(0.68,-0.55,0.27,1.55)",
             }}
           >
-            <img src={lokynNeutre} alt="Lokyn" className="w-32 h-32 object-contain" />
+            <img
+              src={lokynNeutre}
+              alt="Lokyn"
+              className="w-32 h-32 object-contain"
+              width={128}
+              height={128}
+              loading="lazy"
+            />
           </div>
           <div className="absolute bottom-2 right-2 bg-primary text-primary-foreground rounded-full p-2 border-4 border-background">
             <span className="material-symbols-outlined text-sm block fill-1">verified</span>
@@ -150,11 +157,16 @@ const ProfilePage = () => {
           Niveau {profile?.niveau || 1} — {(profile?.niveau || 1) >= 10 ? "Élite" : (profile?.niveau || 1) >= 5 ? "En progression" : "Débutant"}
         </div>
         <button
-          onClick={handleOpenSheet}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-primary text-primary font-bold text-sm active:scale-95 transition-transform"
+          type="button"
+          disabled
+          className="relative flex items-center gap-2 px-6 py-2.5 rounded-xl border border-primary/50 text-white/50 font-bold text-sm bg-surface opacity-70 cursor-not-allowed"
+          aria-label="Personnaliser Lokyn - Bientôt"
         >
-          <span className="material-symbols-outlined text-lg">edit</span>
+          <span className="material-symbols-outlined text-lg">edit_off</span>
           Personnaliser Lokyn
+          <span className="absolute -top-3 -right-3 bg-primary text-white text-[10px] uppercase font-black px-2 py-0.5 rounded-full shadow-lg">
+            Bientôt
+          </span>
         </button>
       </header>
 
@@ -281,6 +293,7 @@ const ProfilePage = () => {
                 Annuler
               </button>
               <button
+                type="button"
                 onClick={handleSignOut}
                 className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground font-semibold text-sm active:scale-95 transition-transform"
               >
@@ -300,6 +313,9 @@ const ProfilePage = () => {
             style={{ animation: "count-fade 200ms ease-out both" }}
           />
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customization-title"
             className="absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-card border-t border-white/10 rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto"
             style={{
               animation: sheetClosing
@@ -308,7 +324,7 @@ const ProfilePage = () => {
             }}
           >
             <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-6" />
-            <h3 className="text-lg font-bold mb-4">Personnaliser Lokyn</h3>
+            <h3 id="customization-title" className="text-lg font-bold mb-4">Personnaliser Lokyn</h3>
 
             {/* Category Pills */}
             <div className="flex gap-2 mb-6">

@@ -13,11 +13,11 @@ const NotFound = () => {
         src={lokynDecu}
         alt="Lokyn déçu"
         className="w-48 h-48 object-contain mb-6 select-none"
+        loading="lazy"
+        width={192}
+        height={192}
       />
-      <h1
-        className="text-6xl font-bold mb-4"
-        style={{ color: "#FF6B2B" }}
-      >
+      <h1 className="text-6xl font-bold mb-4 text-primary">
         404
       </h1>
       <p className="text-xl font-bold mb-2">T'es perdu ? Lokyn aussi.</p>
@@ -25,10 +25,10 @@ const NotFound = () => {
         Cette page n'existe pas. Comme ta motivation certains lundis.
       </p>
       <button
+        type="button"
         onClick={() => navigate("/home")}
-        className="px-8 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform"
+        className="px-8 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform bg-primary"
         style={{
-          backgroundColor: "#FF6B2B",
           boxShadow: "0 8px 20px hsl(18 100% 56% / 0.35)",
         }}
       >
