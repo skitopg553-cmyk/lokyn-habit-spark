@@ -38,6 +38,9 @@ const NewHabitPage = () => {
   const [showLokyn, setShowLokyn] = useState(false);
   const [lokynMessage, setLokynMessage] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+
+  const isDirty = habitName.trim() !== "Séance salle" || objective.trim() !== "";
 
   const toggleDay = useCallback((index: number) => {
     setSelectedDays((prev) =>
@@ -107,10 +110,8 @@ const NewHabitPage = () => {
         <button
           type="button"
           onClick={() => {
-            if (habitName.trim() !== "Séance salle" || objective.trim() !== "") {
-              if (window.confirm("Tu veux vraiment abandonner ?")) {
-                navigate(-1);
-              }
+            if (isDirty) {
+              setShowExitModal(true);
             } else {
               navigate(-1);
             }
@@ -260,14 +261,14 @@ const NewHabitPage = () => {
           {reminderOn && (
             <div className="flex justify-center items-center h-24 border-t border-white/5 mt-2" style={{ animation: "slide-down 300ms ease-out" }}>
               <div className="flex items-center gap-4 text-3xl font-bold">
-                <button className="opacity-30 text-xl hover:opacity-60 transition-opacity" onClick={() => setReminderHour((h) => Math.max(0, h - 1))}>
-                  {String(reminderHour - 1).padStart(2, "0")}
+                <button className="opacity-30 text-xl hover:opacity-60 transition-opacity" onClick={() => setReminderHour((h) => ((h - 1) + 24) % 24)}>
+                  {String(((reminderHour - 1) + 24) % 24).padStart(2, "0")}
                 </button>
                 <div className="text-primary bg-primary/10 px-4 py-2 rounded-lg scale-110">
                   {String(reminderHour).padStart(2, "0")}:00
                 </div>
-                <button className="opacity-30 text-xl hover:opacity-60 transition-opacity" onClick={() => setReminderHour((h) => Math.min(23, h + 1))}>
-                  {String(reminderHour + 1).padStart(2, "0")}
+                <button className="opacity-30 text-xl hover:opacity-60 transition-opacity" onClick={() => setReminderHour((h) => (h + 1) % 24)}>
+                  {String((reminderHour + 1) % 24).padStart(2, "0")}
                 </button>
               </div>
             </div>
@@ -366,6 +367,36 @@ const NewHabitPage = () => {
       </div>
 
       <BottomNav />
+
+      {/* Exit Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div
+            className="bg-card border border-white/10 rounded-2xl p-6 mx-6 w-full max-w-sm text-center"
+            style={{ animation: "slide-up-fade 250ms ease-out both" }}
+          >
+            <img src={lokynNeutre} alt="Lokyn" className="w-16 h-16 object-contain mx-auto mb-4" />
+            <h3 className="text-lg font-bold mb-2">Alors on se dégonfle ?</h3>
+            <p className="text-muted-foreground text-sm mb-6">Ton habitude sera perdue si tu pars maintenant.</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowExitModal(false)}
+                className="flex-1 py-3 rounded-xl bg-surface text-foreground font-semibold text-sm active:scale-95 transition-transform"
+              >
+                Rester
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex-1 py-3 rounded-xl bg-destructive text-white font-semibold text-sm active:scale-95 transition-transform"
+              >
+                Quitter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

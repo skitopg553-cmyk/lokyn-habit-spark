@@ -6,17 +6,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTodayHabits, useCompleteHabit, useUserProfile, getWeekDays, useDaysWithActivity } from "@/hooks/useHabits";
 import { ICON_MAP } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useAuth } from "@/contexts/AuthContext";
 
 const JOUR_LABELS_UPPER = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
 const PULL_THRESHOLD = 65;
 
 const HabitsPage = () => {
+  const { user } = useAuth();
   const [weekOffset, setWeekOffset] = useState(0);
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const todayIndex = weekDays.findIndex((d) => d.isToday);
   const [selectedDay, setSelectedDay] = useState(todayIndex >= 0 ? todayIndex : 0);
   const selectedDateStr = weekDays[selectedDay]?.dateStr;
   const isSelectedFuture = weekDays[selectedDay]?.isFuture;
+  const isToday = weekDays[selectedDay]?.isToday ?? false;
+  const isPast = !isToday && !isSelectedFuture;
+  const isInteractionDisabled = isSelectedFuture || isPast;
 
   useEffect(() => {
     if (weekOffset === 0 && todayIndex >= 0) {
@@ -51,10 +56,12 @@ const HabitsPage = () => {
 
   const deleteHabit = async (habitId: string) => {
     haptic("heavy");
-    await supabase
+    const uid = user?.id ?? "local_user";
+    await (supabase
       .from("habits")
       .update({ actif: false } as any)
-      .eq("id", habitId);
+      .eq("id", habitId)
+      .eq("user_id", uid) as any);
     refresh();
     toast("Habitude supprimée.");
   };
@@ -203,7 +210,7 @@ const HabitsPage = () => {
           {/* Progress Bar */}
           <div className="mt-6">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-sm font-semibold text-primary">{doneCount}/{totalCount} faites aujourd'hui</span>
+              <span className="text-sm font-semibold text-primary">{doneCount}/{totalCount} faites {isToday ? "aujourd'hui" : "ce jour"}</span>
               <span className="text-xs text-muted-foreground">{percent}% complété</span>
             </div>
             <div className="w-full h-2 bg-primary/10 rounded-full overflow-hidden">
@@ -253,7 +260,13 @@ const HabitsPage = () => {
 
         {/* Habits List */}
         <main className="flex-1 px-6 pt-4 pb-32 space-y-4">
-          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Aujourd'hui</h2>
+          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground">{isToday ? "Aujourd'hui" : "Ce jour-là"}</h2>
+
+          {isPast && habits.length > 0 && (
+            <p className="text-[11px] text-muted-foreground/50 italic text-center pb-2">
+              Le passé ne se modifie pas. C'était ta responsabilité.
+            </p>
+          )}
 
           {loading && <p className="text-muted-foreground text-sm">Chargement...</p>}
           {!loading && habits.length === 0 && (
@@ -280,18 +293,18 @@ const HabitsPage = () => {
                       : undefined,
                 }}
                 onTouchStart={(e) => {
-                  if (!habit.completed && !isSelectedFuture) handleTouchStart(e, habit.id);
+                  if (!habit.completed && !isInteractionDisabled) handleTouchStart(e, habit.id);
                   longPressTimer.current = setTimeout(() => {
                     haptic("medium");
                     setLongPressId(habit.id);
                   }, 600);
                 }}
                 onTouchMove={(e) => {
-                  if (!isSelectedFuture) handleTouchMove(e);
+                  if (!isInteractionDisabled) handleTouchMove(e);
                   if (longPressTimer.current) clearTimeout(longPressTimer.current);
                 }}
                 onTouchEnd={() => {
-                  if (!isSelectedFuture) handleTouchEnd();
+                  if (!isInteractionDisabled) handleTouchEnd();
                   if (longPressTimer.current) clearTimeout(longPressTimer.current);
                 }}
               >
@@ -323,9 +336,9 @@ const HabitsPage = () => {
                 {habit.completed ? (
                   <button
                     type="button"
-                    disabled={isSelectedFuture}
+                    disabled={isInteractionDisabled}
                     className="w-8 h-8 rounded-full bg-success text-success-foreground flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    onClick={() => { if (!isSelectedFuture) { haptic("light"); uncomplete(habit.id, habit.xp_estime); } }}
+                    onClick={() => { if (!isInteractionDisabled) { haptic("light"); uncomplete(habit.id, habit.xp_estime); } }}
                     aria-label="Annuler habitude"
                   >
                     <span className="material-symbols-outlined text-sm">check</span>
@@ -333,7 +346,7 @@ const HabitsPage = () => {
                 ) : habit.preuve_requise ? (
                   <button
                     type="button"
-                    disabled={isSelectedFuture}
+                    disabled={isInteractionDisabled}
                     className="w-8 h-8 rounded-full border-2 border-primary/40 flex items-center justify-center disabled:opacity-30"
                     aria-label="Preuve requise"
                   >
@@ -342,9 +355,9 @@ const HabitsPage = () => {
                 ) : (
                   <button
                     type="button"
-                    disabled={isSelectedFuture}
+                    disabled={isInteractionDisabled}
                     className="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    onClick={() => { if (!isSelectedFuture) { haptic("light"); complete(habit.id, habit.xp_estime); } }}
+                    onClick={() => { if (!isInteractionDisabled) { haptic("light"); complete(habit.id, habit.xp_estime); } }}
                     aria-label="Valider habitude"
                   />
                 )}

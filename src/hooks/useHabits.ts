@@ -49,8 +49,8 @@ export function getWeekDays(weekOffset = 0) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const dateStr = d.toISOString().split("T")[0];
-    const todayStr = new Date().toISOString().split("T")[0];
+    const dateStr = toDateStr(d);
+    const todayStr = toDateStr(new Date());
     return {
       date: d,
       label: JOUR_LABELS[i],
@@ -74,7 +74,8 @@ async function fetchTodayHabits(dateStr: string): Promise<Habit[]> {
     .from("habits")
     .select("*")
     .eq("user_id", userId)
-    .eq("actif", true) as any;
+    .eq("actif", true)
+    .lte("date_creation", dateStr) as any;
 
   let todayHabits: any[] = (allHabits || []).filter((h: any) => {
     if (h.frequence === "daily") return true;
@@ -367,12 +368,12 @@ export async function applyXpDecay() {
 
   const uid = await getAuthUserId();
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = toDateStr(today);
 
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    return d.toISOString().split("T")[0];
+    return toDateStr(d);
   });
 
   const { data: userHabits } = await supabase.from("habits").select("id").eq("user_id", uid) as any;
@@ -401,7 +402,7 @@ export async function applyXpDecay() {
   for (let i = 1; i <= 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const ds = d.toISOString().split("T")[0];
+    const ds = toDateStr(d);
     const hasActivity = (completions || []).some((c: any) => c.date === ds);
     if (!hasActivity) inactiveDays++;
     else break;
