@@ -33,31 +33,39 @@ const HomePage = () => {
   }, [refresh, refreshProfile]);
   const { complete, uncomplete } = useCompleteHabit(combinedRefresh, setHabits, undefined, setProfile);
 
-  const xpActuel = profile?.xp_total || 0;
-  const xpPercent = Math.min(Math.round(xpActuel % 100), 100);
-
   // XP bar animation state
-  const [xpAnimTarget, setXpAnimTarget] = useState(0);
+  const [xpDisplay, setXpDisplay] = useState(0);
+  const [niveauDisplay, setNiveauDisplay] = useState(1);
+  const [xpBarTransition, setXpBarTransition] = useState("600ms");
   const prevNiveauRef = useRef<number>(-1);
 
   // Level up animation: 2-phase fill
   useEffect(() => {
     if (!profile) return;
     const currentNiveau = profile.niveau || 1;
-    const currentXpPercent = Math.min(Math.round((profile.xp_total % 100)), 100);
+    const currentXpPercent = Math.min(Math.round(profile.xp_total % 100), 100);
     let t1: ReturnType<typeof setTimeout>;
     let t2: ReturnType<typeof setTimeout>;
 
     if (prevNiveauRef.current !== -1 && currentNiveau > prevNiveauRef.current) {
-      // Phase 1: fill to 100%
-      setXpAnimTarget(100);
+      // Phase 1: animate bar to 100% over 600ms, keep old niveau displayed
+      setXpBarTransition("600ms");
+      setXpDisplay(100);
       t1 = setTimeout(() => {
-        // Phase 2: reset to 0, then fill to new %
-        setXpAnimTarget(0);
-        t2 = setTimeout(() => setXpAnimTarget(currentXpPercent), 50);
-      }, 600);
+        // Phase 2: flip niveau, instant reset bar to 0%, then animate to new %
+        setNiveauDisplay(currentNiveau);
+        setXpBarTransition("0ms");
+        setXpDisplay(0);
+        t2 = setTimeout(() => {
+          setXpBarTransition("400ms");
+          setXpDisplay(currentXpPercent);
+        }, 50);
+      }, 700);
     } else {
-      setXpAnimTarget(currentXpPercent);
+      // No level up (including uncomplete): direct update
+      setXpBarTransition("600ms");
+      setXpDisplay(currentXpPercent);
+      setNiveauDisplay(currentNiveau);
     }
     prevNiveauRef.current = currentNiveau;
 
@@ -212,7 +220,6 @@ const HomePage = () => {
               src={lokyn.image}
               alt="Lokyn"
               className="w-48 h-48 object-contain select-none"
-              style={{ mixBlendMode: "screen" }}
             />
           </div>
 
@@ -227,25 +234,25 @@ const HomePage = () => {
                   XP
                 </span>
                 <span className="text-xs font-bold text-primary">
-                  Niveau {profile?.niveau || 1}
+                  Niveau {niveauDisplay}
                 </span>
               </div>
               <span className="text-xs font-bold text-primary">
-                {xpActuel % 100}/100
+                {xpDisplay}/100
               </span>
             </div>
             <div className="h-3 w-full bg-card rounded-full overflow-hidden border border-white/5">
               <div
                 className="h-full bg-primary rounded-full transition-all ease-out"
                 style={{
-                  width: `${xpAnimTarget}%`,
-                  transitionDuration: "800ms",
+                  width: `${xpDisplay}%`,
+                  transitionDuration: xpBarTransition,
                   boxShadow: "0 0 12px hsl(18 100% 56% / 0.6)",
                 }}
               />
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 text-right">
-              {100 - (xpActuel % 100)} XP avant le niveau suivant
+              {100 - xpDisplay} XP avant le niveau suivant
             </p>
           </div>
         </div>

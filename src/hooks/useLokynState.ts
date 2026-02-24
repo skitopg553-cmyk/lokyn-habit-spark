@@ -2,11 +2,11 @@ import oeuf1 from "@/assets/lokyn-oeuf-1.png.jpg";
 import oeuf2 from "@/assets/lokyn-oeuf-2.png.jpg";
 import oeuf3 from "@/assets/lokyn-oeuf-3.png.jpg";
 import oeufEclosion from "@/assets/lokyn-oeuf-eclosion.png.jpg";
-import neutre from "@/assets/lokyn-neutre.png.jpg";
-import rayonnant from "@/assets/lokyn-rayonnant.png.jpg";
-import streakImg from "@/assets/lokyn-streak.png.jpg";
-import decu from "@/assets/lokyn-decu.png.jpg";
-import chute from "@/assets/lokyn-chute.png.jpg";
+import neutre from "@/assets/lokyn-neutre.png.png";
+import rayonnant from "@/assets/lokyn-rayonnant.png.png";
+import streakImg from "@/assets/lokyn-streak.png.png";
+import decu from "@/assets/lokyn-decu.png.png";
+import chute from "@/assets/lokyn-chute.png.png";
 
 export type LokynEtat =
   | "oeuf-1"

@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, useTodayHabits } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
-import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
+import lokynNeutre from "@/assets/lokyn-neutre.png.png";
 
 const objectives = ["Fitness", "Études", "Nutrition"];
 
@@ -125,7 +125,7 @@ const ProfilePage = () => {
               transition: "transform 300ms cubic-bezier(0.68,-0.55,0.27,1.55)",
             }}
           >
-            <img src={lokynNeutre} alt="Lokyn" className="w-32 h-32 object-contain" style={{ mixBlendMode: "screen" }} />
+            <img src={lokynNeutre} alt="Lokyn" className="w-32 h-32 object-contain" />
           </div>
           <div className="absolute bottom-2 right-2 bg-primary text-primary-foreground rounded-full p-2 border-4 border-background">
             <span className="material-symbols-outlined text-sm block fill-1">verified</span>

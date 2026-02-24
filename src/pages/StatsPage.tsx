@@ -3,10 +3,10 @@ import BottomNav from "../components/BottomNav";
 import { useUserProfile, getWeekDays } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
 import { JOUR_MAP } from "@/lib/utils";
-import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
-import lokynRayonnant from "@/assets/lokyn-rayonnant.png.jpg";
-import lokynDecu from "@/assets/lokyn-decu.png.jpg";
-import lokynChute from "@/assets/lokyn-chute.png.jpg";
+import lokynNeutre from "@/assets/lokyn-neutre.png.png";
+import lokynRayonnant from "@/assets/lokyn-rayonnant.png.png";
+import lokynDecu from "@/assets/lokyn-decu.png.png";
+import lokynChute from "@/assets/lokyn-chute.png.png";
 
 const periods = ["7J", "30J", "Tout"] as const;
 
@@ -259,7 +259,7 @@ const StatsPage = () => {
                   }`}
                 >
                   <div className="aspect-[3/4] rounded-lg relative overflow-hidden">
-                    <img src={card.img} alt="Lokyn" className="absolute inset-0 w-full h-full object-cover" style={{ mixBlendMode: "screen" }} />
+                    <img src={card.img} alt="Lokyn" className="absolute inset-0 w-full h-full object-cover" />
                   </div>
                   <div className="px-2 pb-2 pt-1">
                     <p className="text-sm font-bold">{card.date}</p>

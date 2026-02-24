@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import lokynNeutre from "@/assets/lokyn-neutre.png.jpg";
+import lokynNeutre from "@/assets/lokyn-neutre.png.png";
 
 const objectifs = [
   { id: "sport", label: "💪 Muscu / Sport" },
@@ -44,7 +44,7 @@ const OnboardingPage = () => {
           style={{ animation: "slide-up-fade 500ms ease-out both" }}>
           <div style={{ animation: "lokyn-float 2.5s ease-in-out infinite" }}>
             <img src={lokynNeutre} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
-              style={{ mixBlendMode: "screen" }} />
+              style={{}} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-4 leading-tight">
             Si tu fais rien,<br />
@@ -136,7 +136,7 @@ const OnboardingPage = () => {
           style={{ animation: "slide-up-fade 500ms ease-out both" }}>
           <div style={{ animation: "lokyn-float 2.5s ease-in-out infinite" }}>
             <img src={lokynNeutre} alt="Lokyn" className="w-48 h-48 object-contain mb-8"
-              style={{ mixBlendMode: "screen" }} />
+              style={{}} />
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">
             Ok, <span className="text-primary">{prenom}</span>.<br />
