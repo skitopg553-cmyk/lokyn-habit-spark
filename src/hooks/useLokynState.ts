@@ -6,6 +6,7 @@ import neutre from "@/assets/lokyn-neutre.png";
 import rayonnant from "@/assets/lokyn-rayonnant.png";
 import streakImg from "@/assets/lokyn-streak.png";
 import decu from "@/assets/lokyn-decu.png";
+import enerve from "@/assets/lokyn-enerve.png";
 import chute from "@/assets/lokyn-chute.png";
 
 export type LokynEtat =
@@ -16,6 +17,7 @@ export type LokynEtat =
   | "rayonnant"
   | "streak"
   | "chute"
+  | "enerve"
   | "decu"
   | "neutre";
 
@@ -70,6 +72,11 @@ const CONFIG: Record<LokynEtat, { image: string; label: string; dropShadowColor:
     label: "Je me dégrade à cause de toi.",
     dropShadowColor: "drop-shadow(0 10px 20px rgba(101, 67, 33, 0.5))",
   },
+  enerve: {
+    image: enerve,
+    label: "Tu commences à m'énerver.",
+    dropShadowColor: "drop-shadow(0 10px 20px rgba(255, 0, 0, 0.5))",
+  },
   decu: {
     image: decu,
     label: "Vraiment ? C'est tout ?",
@@ -90,24 +97,25 @@ export function useLokynState({
 }: LokynStateParams): LokynStateResult {
   let etat: LokynEtat;
 
-  if (accountAgeDays === 0) {
-    etat = "oeuf-1";
-  } else if (accountAgeDays === 1) {
-    etat = "oeuf-2";
-  } else if (completionPercent === 100) {
-    etat = "streak";
-  } else if (accountAgeDays === 2 && streak < 3) {
-    etat = "oeuf-3";
-  } else if (accountAgeDays <= 3 && streak < 3) {
-    etat = "oeuf-eclosion";
-  } else if (completionPercent >= 50 && streak >= 3) {
-    etat = "rayonnant";
-  } else if (joursInactif >= 2) {
-    etat = "chute";
-  } else if (joursInactif >= 1 || completionPercent < 50) {
-    etat = "decu";
+  if (accountAgeDays <= 3 && completionPercent < 100 && joursInactif === 0) {
+    if (accountAgeDays === 0) etat = "oeuf-1";
+    else if (accountAgeDays === 1) etat = "oeuf-2";
+    else if (accountAgeDays === 2) etat = "oeuf-3";
+    else etat = "oeuf-eclosion";
   } else {
-    etat = "neutre";
+    if (joursInactif >= 3) {
+      etat = "chute";
+    } else if (joursInactif === 2) {
+      etat = "enerve";
+    } else if (joursInactif === 1) {
+      etat = "decu";
+    } else if (completionPercent === 100) {
+      etat = "streak";
+    } else if (completionPercent >= 50) {
+      etat = "rayonnant";
+    } else {
+      etat = "neutre";
+    }
   }
 
   const cfg = CONFIG[etat];
@@ -163,6 +171,12 @@ export const MESSAGES_BY_ETAT: Record<LokynEtat, string[]> = {
     "Je me dégrade à cause de toi.",
     "Reviens. S'il te plaît.",
     "C'est ta faute.",
+  ],
+  enerve: [
+    "Je ne rigole plus.",
+    "Tu te moques de moi ?",
+    "Bouge-toi, c'est un ordre.",
+    "Je déteste attendre.",
   ],
   decu: [
     "Vraiment ? C'est tout ?",
