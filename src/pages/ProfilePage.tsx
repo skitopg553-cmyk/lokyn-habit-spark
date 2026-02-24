@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import BottomNav from "../components/BottomNav";
 import { useUserProfile, useTodayHabits } from "@/hooks/useHabits";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import lokynNeutre from "@/assets/lokyn-neutre.png";
 
 const objectives = ["Fitness", "Études", "Nutrition"];
@@ -37,6 +39,8 @@ const customizationItems: Record<string, { name: string; icon: string; unlocked:
 const ProfilePage = () => {
   const { profile, refresh: refreshProfile } = useUserProfile();
   const { habits } = useTodayHabits();
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
   const [objectives_, setObjectives] = useState(objectives);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [showSheet, setShowSheet] = useState(false);
@@ -54,14 +58,21 @@ const ProfilePage = () => {
 
   const handleSavePrenom = async () => {
     if (!newPrenom.trim()) return;
-    await supabase
-      .from("user_profile")
-      .update({ prenom: newPrenom.trim() } as any)
-      .eq("id", "local_user");
+    const q = supabase.from("user_profile").update({ prenom: newPrenom.trim() } as any) as any;
+    if (user?.id) {
+      await q.eq("auth_id", user.id);
+    } else {
+      await q.eq("id", "local_user");
+    }
     toast(`Prénom mis à jour : ${newPrenom.trim()}`);
     setShowPrenomEdit(false);
     setNewPrenom("");
     refreshProfile();
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
   };
 
   useEffect(() => {
@@ -183,9 +194,8 @@ const ProfilePage = () => {
           {objectives_.map((obj, i) => (
             <div
               key={i}
-              className={`bg-surface px-4 py-2.5 rounded-full flex items-center gap-3 border transition-all duration-200 ${
-                editingIndex === i ? "border-primary bg-surface-active" : "border-white/5"
-              }`}
+              className={`bg-surface px-4 py-2.5 rounded-full flex items-center gap-3 border transition-all duration-200 ${editingIndex === i ? "border-primary bg-surface-active" : "border-white/5"
+                }`}
               style={{ animation: `slide-up-fade 300ms ease-out ${i * 80}ms both` }}
             >
               <span className="text-sm font-medium">{obj}</span>
@@ -217,14 +227,13 @@ const ProfilePage = () => {
             className="flex items-center justify-between py-4 group cursor-pointer border-b border-white/5"
             style={{ animation: `slide-up-fade 300ms ease-out ${i * 40}ms both` }}
             onClick={() => {
-  if (item.label === "Changer mon prénom") {
-    setShowPrenomEdit(true);
-  }
-  if (item.label === "Revoir l'onboarding") {
-    localStorage.removeItem("onboarding_done");
-    window.location.href = "/onboarding";
-  }
-}}
+              if (item.label === "Changer mon prénom") {
+                setShowPrenomEdit(true);
+              }
+              if (item.label === "Revoir l'onboarding") {
+                window.location.href = "/onboarding";
+              }
+            }}
           >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center group-hover:bg-primary/10 transition-colors">
@@ -272,6 +281,7 @@ const ProfilePage = () => {
                 Annuler
               </button>
               <button
+                onClick={handleSignOut}
                 className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground font-semibold text-sm active:scale-95 transition-transform"
               >
                 Confirmer
@@ -306,11 +316,10 @@ const ProfilePage = () => {
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
-                    activeCategory === cat
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-surface text-muted-foreground"
-                  }`}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${activeCategory === cat
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-surface text-muted-foreground"
+                    }`}
                 >
                   {cat}
                 </button>
@@ -330,13 +339,12 @@ const ProfilePage = () => {
                   onClick={() => handleItemTap(item)}
                 >
                   <div
-                    className={`w-16 h-16 rounded-xl flex items-center justify-center border-2 transition-all ${
-                      selectedItem === item.name && item.unlocked
-                        ? "border-primary bg-primary/10"
-                        : item.unlocked
+                    className={`w-16 h-16 rounded-xl flex items-center justify-center border-2 transition-all ${selectedItem === item.name && item.unlocked
+                      ? "border-primary bg-primary/10"
+                      : item.unlocked
                         ? "border-white/10 bg-surface"
                         : "border-muted-foreground/20 bg-surface opacity-40"
-                    }`}
+                      }`}
                     style={{
                       transform:
                         selectedItem === item.name && item.unlocked
@@ -347,9 +355,8 @@ const ProfilePage = () => {
                     }}
                   >
                     <span
-                      className={`material-symbols-outlined text-2xl ${
-                        item.unlocked ? "text-foreground" : "text-muted-foreground"
-                      }`}
+                      className={`material-symbols-outlined text-2xl ${item.unlocked ? "text-foreground" : "text-muted-foreground"
+                        }`}
                     >
                       {item.unlocked ? item.icon : "lock"}
                     </span>
@@ -369,9 +376,8 @@ const ProfilePage = () => {
 
             <button
               onClick={handleSave}
-              className={`w-full py-3 rounded-xl font-bold text-sm text-primary-foreground active:scale-95 transition-all ${
-                saveFlash ? "bg-success" : "bg-primary"
-              }`}
+              className={`w-full py-3 rounded-xl font-bold text-sm text-primary-foreground active:scale-95 transition-all ${saveFlash ? "bg-success" : "bg-primary"
+                }`}
             >
               Sauvegarder
             </button>

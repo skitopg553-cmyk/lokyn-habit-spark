@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
-// StatBar supprimé
 import BottomNav from "../components/BottomNav";
 import { useTodayHabits, useCompleteHabit, useUserProfile, Habit } from "@/hooks/useHabits";
 import { useLokynState, MESSAGES_BY_ETAT } from "@/hooks/useLokynState";
 import { supabase } from "@/integrations/supabase/client";
 import { ICON_MAP } from "@/lib/utils";
+import { haptic } from "@/lib/haptic";
 
 const fireConfetti = () =>
   confetti({
@@ -17,14 +17,19 @@ const fireConfetti = () =>
     gravity: 1.5,
   });
 
+const PULL_THRESHOLD = 65;
+
 const HomePage = () => {
   const [message, setMessage] = useState("…");
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [lokynBounce, setLokynBounce] = useState(false);
-
-  // Lokyn state data
   const [accountAgeDays, setAccountAgeDays] = useState(999);
   const [joursInactif, setJoursInactif] = useState(0);
+
+  // Pull-to-refresh state
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
 
   const { habits, refresh, setHabits } = useTodayHabits();
   const { profile, refresh: refreshProfile, setProfile } = useUserProfile();
@@ -37,9 +42,9 @@ const HomePage = () => {
   const [xpDisplay, setXpDisplay] = useState(0);
   const [niveauDisplay, setNiveauDisplay] = useState(1);
   const [xpBarTransition, setXpBarTransition] = useState("600ms");
+  const [isLevelingUp, setIsLevelingUp] = useState(false);
   const prevNiveauRef = useRef<number>(-1);
 
-  // Level up animation: 2-phase fill
   useEffect(() => {
     if (!profile) return;
     const currentNiveau = profile.niveau || 1;
@@ -48,21 +53,21 @@ const HomePage = () => {
     let t2: ReturnType<typeof setTimeout>;
 
     if (prevNiveauRef.current !== -1 && currentNiveau > prevNiveauRef.current) {
-      // Phase 1: animate bar to 100% over 600ms, keep old niveau displayed
+      setIsLevelingUp(true);
+      haptic("levelup");
       setXpBarTransition("600ms");
       setXpDisplay(100);
       t1 = setTimeout(() => {
-        // Phase 2: flip niveau, instant reset bar to 0%, then animate to new %
         setNiveauDisplay(currentNiveau);
         setXpBarTransition("0ms");
         setXpDisplay(0);
         t2 = setTimeout(() => {
           setXpBarTransition("400ms");
           setXpDisplay(currentXpPercent);
+          setIsLevelingUp(false);
         }, 50);
       }, 700);
     } else {
-      // No level up (including uncomplete): direct update
       setXpBarTransition("600ms");
       setXpDisplay(currentXpPercent);
       setNiveauDisplay(currentNiveau);
@@ -79,6 +84,19 @@ const HomePage = () => {
   const totalCount = habits.length;
   const completionPercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 100;
 
+  // Confetti + haptic when all done
+  const prevDoneRef = useRef(0);
+  useEffect(() => {
+    if (
+      totalCount > 0 &&
+      doneCount === totalCount &&
+      prevDoneRef.current < totalCount
+    ) {
+      haptic("success");
+    }
+    prevDoneRef.current = doneCount;
+  }, [doneCount, totalCount]);
+
   const lokyn = useLokynState({
     streak: profile?.streak_actuel || 0,
     completionPercent,
@@ -86,10 +104,8 @@ const HomePage = () => {
     accountAgeDays,
   });
 
-  // Fetch accountAgeDays and joursInactif on mount (with localStorage cache)
   useEffect(() => {
     async function fetchLokynData() {
-      // accountAgeDays — cache for 24h
       const cachedAge = localStorage.getItem("lokyn_account_age_days");
       const cachedAgeTime = localStorage.getItem("lokyn_account_age_updated");
       const ageMs = cachedAgeTime ? Date.now() - parseInt(cachedAgeTime) : Infinity;
@@ -97,11 +113,13 @@ const HomePage = () => {
       if (cachedAge !== null && ageMs < 86_400_000) {
         setAccountAgeDays(parseInt(cachedAge));
       } else {
-        const { data: profileData } = await supabase
-          .from("user_profile")
-          .select("created_at")
-          .eq("id", "local_user")
-          .maybeSingle() as any;
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        const profileQuery = supabase.from("user_profile").select("created_at") as any;
+        const { data: profileData } = await (uid
+          ? profileQuery.eq("auth_id", uid)
+          : profileQuery.eq("id", "local_user")
+        ).maybeSingle();
 
         if (profileData?.created_at) {
           const diffDays = Math.floor((Date.now() - new Date(profileData.created_at).getTime()) / 86_400_000);
@@ -111,7 +129,6 @@ const HomePage = () => {
         }
       }
 
-      // joursInactif — cache invalidated on each completion/uncompletion
       const cachedInactif = localStorage.getItem("lokyn_jours_inactif");
       if (cachedInactif !== null) {
         setJoursInactif(parseInt(cachedInactif));
@@ -138,11 +155,9 @@ const HomePage = () => {
         localStorage.setItem("lokyn_jours_inactif", String(inactif));
       }
     }
-
     fetchLokynData();
   }, []);
 
-  // Update bubble message when lokyn state changes
   useEffect(() => {
     const pool = MESSAGES_BY_ETAT[lokyn.etat];
     setMessage(pool[0]);
@@ -154,6 +169,7 @@ const HomePage = () => {
   }, []);
 
   const handleLokynTap = useCallback(() => {
+    haptic("light");
     setLokynBounce(true);
     const pool = MESSAGES_BY_ETAT[lokyn.etat];
     const randomMsg = pool[Math.floor(Math.random() * pool.length)];
@@ -164,8 +180,10 @@ const HomePage = () => {
   const handleCheckbox = useCallback(
     (habit: Habit) => {
       if (habit.completed) {
+        haptic("light");
         uncomplete(habit.id, habit.xp_estime);
       } else {
+        haptic("light");
         complete(habit.id, habit.xp_estime);
         fireConfetti();
       }
@@ -173,129 +191,180 @@ const HomePage = () => {
     [complete, uncomplete]
   );
 
+  // Pull-to-refresh handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (window.scrollY !== 0) return;
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) setPullDistance(Math.min(delta * 0.4, PULL_THRESHOLD));
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance >= PULL_THRESHOLD) {
+      haptic("light");
+      setIsRefreshing(true);
+      await combinedRefresh();
+      setIsRefreshing(false);
+    }
+    setPullDistance(0);
+  };
+
   return (
-    <div className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-x-hidden pb-24">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 pt-8 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Bonjour, <span className="text-primary">{profile?.prenom || "Alex"}</span>
-          </h1>
-          <p className="text-muted-foreground text-sm font-medium">
-            {totalCount > 0 ? `${doneCount}/${totalCount} faites aujourd'hui` : "Prêt pour tes défis ?"}
-          </p>
-        </div>
-        <div className="flex items-center bg-primary/10 border border-primary/20 px-4 py-2 rounded-full">
-          <span className="text-primary font-bold mr-1">{profile?.streak_actuel || 0}</span>
-          <span className="material-symbols-outlined text-primary fill-1 leading-none text-xl">
-            local_fire_department
+    <div
+      className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-x-hidden pb-24"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="absolute top-0 left-0 right-0 flex justify-center z-30 pointer-events-none overflow-hidden"
+        style={{
+          height: `${pullDistance}px`,
+          opacity: pullDistance / PULL_THRESHOLD,
+          transition: pullDistance === 0 ? "height 300ms ease, opacity 300ms ease" : "none",
+        }}
+      >
+        <div className="flex items-center justify-center">
+          <span
+            className="material-symbols-outlined text-primary text-xl"
+            style={{ animation: isRefreshing ? "spin 1s linear infinite" : "none" }}
+          >
+            {isRefreshing ? "refresh" : "arrow_downward"}
           </span>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        {/* Mascot Section */}
-        <div className="relative flex flex-col items-center justify-center py-6 px-4">
-          {/* Speech Bubble */}
-          <div
-            className="absolute top-0 right-10 z-10 transition-opacity duration-500"
-            style={{ opacity: bubbleVisible ? 1 : 0 }}
-          >
-            <div className="bg-card/70 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-2xl rounded-tr-none shadow-xl max-w-[200px]">
-              <p className="text-sm font-medium leading-tight italic">"{message}"</p>
-            </div>
-          </div>
-
-          {/* Lokyn Mascot — NO background, NO circle, just the image */}
-          <div
-            className="w-64 h-64 flex items-center justify-center cursor-pointer"
-            onClick={handleLokynTap}
-            style={{
-              transform: lokynBounce ? "scale(1.08)" : "scale(1)",
-              transition: "transform 200ms cubic-bezier(0.68, -0.55, 0.27, 1.55)",
-            }}
-          >
-            <img
-              src={lokyn.image}
-              alt="Lokyn"
-              className="w-48 h-48 object-contain select-none"
-            />
-          </div>
-
-          {/* Lokyn state label */}
-          <p className="text-xs text-muted-foreground italic mt-1 text-center">{lokyn.label}</p>
-
-          {/* XP Bar */}
-          <div className="w-full max-w-sm px-6 mt-8">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
-                  XP
-                </span>
-                <span className="text-xs font-bold text-primary">
-                  Niveau {niveauDisplay}
-                </span>
-              </div>
-              <span className="text-xs font-bold text-primary">
-                {xpDisplay}/100
-              </span>
-            </div>
-            <div className="h-3 w-full bg-card rounded-full overflow-hidden border border-white/5">
-              <div
-                className="h-full bg-primary rounded-full transition-all ease-out"
-                style={{
-                  width: `${xpDisplay}%`,
-                  transitionDuration: xpBarTransition,
-                  boxShadow: "0 0 12px hsl(18 100% 56% / 0.6)",
-                }}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1 text-right">
-              {100 - xpDisplay} XP avant le niveau suivant
+      {/* Content shifts down during pull */}
+      <div
+        style={{
+          transform: `translateY(${pullDistance}px)`,
+          transition: pullDistance === 0 ? "transform 300ms ease" : "none",
+        }}
+      >
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 pt-8 pb-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Bonjour, <span className="text-primary">{profile?.prenom || "Alex"}</span>
+            </h1>
+            <p className="text-muted-foreground text-sm font-medium">
+              {totalCount > 0 ? `${doneCount}/${totalCount} faites aujourd'hui` : "Prêt pour tes défis ?"}
             </p>
           </div>
-        </div>
-
-        {/* Habits Section */}
-        <section className="mt-8">
-          <div className="flex items-center justify-between px-6 mb-4">
-            <h2 className="text-lg font-bold">Habitudes du jour</h2>
-            <a className="text-primary text-xs font-bold uppercase tracking-wider" href="/habits">
-              Voir tout
-            </a>
+          <div className="flex items-center bg-primary/10 border border-primary/20 px-4 py-2 rounded-full">
+            <span className="text-primary font-bold mr-1">{profile?.streak_actuel || 0}</span>
+            <span className="material-symbols-outlined text-primary fill-1 leading-none text-xl">
+              local_fire_department
+            </span>
           </div>
-          <div className="flex overflow-x-auto gap-4 px-6 pb-4 hide-scrollbar">
-            {habits.length === 0 && (
-              <p className="text-muted-foreground text-sm italic">Aucune habitude — crée ta première !</p>
-            )}
-            {habits.map((habit, i) => (
-              <div
-                key={habit.id}
-                className="flex-shrink-0 w-40 bg-card p-4 rounded-2xl border border-white/5 flex flex-col items-center text-center"
-                style={{ animation: `slide-up-fade 400ms ease-out ${i * 100}ms both` }}
-              >
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3">
-                  <span className="material-symbols-outlined text-primary">
-                    {ICON_MAP[habit.categorie]?.icon || "star"}
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          {/* Mascot Section */}
+          <div className="relative flex flex-col items-center justify-center py-6 px-4">
+            {/* Speech Bubble */}
+            <div
+              className="absolute top-0 right-10 z-10 transition-opacity duration-500"
+              style={{ opacity: bubbleVisible ? 1 : 0 }}
+            >
+              <div className="bg-card/70 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-2xl rounded-tr-none shadow-xl max-w-[200px]">
+                <p className="text-sm font-medium leading-tight italic">"{message}"</p>
+              </div>
+            </div>
+
+            {/* Lokyn Mascot */}
+            <div
+              className="w-64 h-64 flex items-center justify-center cursor-pointer"
+              onClick={handleLokynTap}
+              style={{
+                transform: lokynBounce ? "scale(1.08)" : "scale(1)",
+                transition: "transform 200ms cubic-bezier(0.68, -0.55, 0.27, 1.55)",
+              }}
+            >
+              <img
+                src={lokyn.image}
+                alt="Lokyn"
+                className="w-48 h-48 object-contain select-none"
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground italic mt-1 text-center">{lokyn.label}</p>
+
+            {/* XP Bar */}
+            <div className="w-full max-w-sm px-6 mt-8">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+                    XP
+                  </span>
+                  <span className={`text-xs font-bold text-primary ${isLevelingUp ? "scale-110" : ""} transition-transform`}>
+                    Niveau {niveauDisplay}
                   </span>
                 </div>
-                <p className="font-bold text-sm mb-3">{habit.nom}</p>
-                <div
-                  className={`w-6 h-6 border-2 rounded-md flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                    habit.completed ? "bg-success border-success" : "border-primary"
-                  }`}
-                  onClick={() => handleCheckbox(habit)}
-                >
-                  {habit.completed && (
-                    <span className="material-symbols-outlined text-xs text-white">check</span>
-                  )}
-                </div>
+                <span className="text-xs font-bold text-primary">
+                  {xpDisplay}/100
+                </span>
               </div>
-            ))}
+              <div className="h-3 w-full bg-card rounded-full overflow-hidden border border-white/5">
+                <div
+                  className="h-full bg-primary rounded-full transition-all ease-out"
+                  style={{
+                    width: `${xpDisplay}%`,
+                    transitionDuration: xpBarTransition,
+                    boxShadow: "0 0 12px hsl(18 100% 56% / 0.6)",
+                  }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">
+                {100 - xpDisplay} XP avant le niveau suivant
+              </p>
+            </div>
           </div>
-        </section>
-      </main>
+
+          {/* Habits Section */}
+          <section className="mt-8">
+            <div className="flex items-center justify-between px-6 mb-4">
+              <h2 className="text-lg font-bold">Habitudes du jour</h2>
+              <a className="text-primary text-xs font-bold uppercase tracking-wider" href="/habits">
+                Voir tout
+              </a>
+            </div>
+            <div className="flex overflow-x-auto gap-4 px-6 pb-4 hide-scrollbar">
+              {habits.length === 0 && (
+                <p className="text-muted-foreground text-sm italic">Aucune habitude — crée ta première !</p>
+              )}
+              {habits.map((habit, i) => (
+                <div
+                  key={habit.id}
+                  className="flex-shrink-0 w-40 bg-card p-4 rounded-2xl border border-white/5 flex flex-col items-center text-center"
+                  style={{ animation: `slide-up-fade 400ms ease-out ${i * 100}ms both` }}
+                >
+                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3">
+                    <span className="material-symbols-outlined text-primary">
+                      {ICON_MAP[habit.categorie]?.icon || "star"}
+                    </span>
+                  </div>
+                  <p className="font-bold text-sm mb-3">{habit.nom}</p>
+                  <div
+                    className={`w-6 h-6 border-2 rounded-md flex items-center justify-center cursor-pointer transition-all duration-200 ${habit.completed ? "bg-success border-success" : "border-primary"
+                      }`}
+                    onClick={() => handleCheckbox(habit)}
+                  >
+                    {habit.completed && (
+                      <span className="material-symbols-outlined text-xs text-white">check</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </main>
+      </div>
 
       <BottomNav />
     </div>

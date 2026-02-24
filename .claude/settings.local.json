@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd C:\\\\Users\\\\cerqueira ruben\\\\Desktop\\\\LOKYN\\\\lokyn-habit-spark-main-main:*)",
+      "Bash(cd:*)",
+      "Bash(head:*)",
+      "Bash(cd \"/c/Users/cerqueira ruben/Desktop/LOKYN/lokyn-habit-spark-main-main\" && npm run build 2>&1)"
+    ]
+  }
+}

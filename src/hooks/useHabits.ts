@@ -1,7 +1,16 @@
-import { useState, useEffect, useCallback, Dispatch, SetStateAction } from "react";
+import { useState, useCallback, Dispatch, SetStateAction } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toDateStr, JOUR_MAP, JOUR_LABELS } from "@/lib/utils";
+
+// --------------- Helper to get current userId ----------------
+async function getAuthUserId(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user?.id ?? "local_user";
+}
+
+// --------------- Types ----------------
 
 export interface Habit {
   id: string;
@@ -29,6 +38,8 @@ export interface UserProfile {
   objectifs: string[];
 }
 
+// --------------- Week helpers ----------------
+
 export function getWeekDays() {
   const today = new Date();
   const dayOfWeek = today.getDay();
@@ -48,65 +59,82 @@ export function getWeekDays() {
   });
 }
 
-export function useTodayHabits(selectedDate?: string) {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [loading, setLoading] = useState(true);
+// --------------- useTodayHabits (React Query) ----------------
 
+async function fetchTodayHabits(dateStr: string): Promise<Habit[]> {
+  const userId = await getAuthUserId();
+  const targetDate = new Date(dateStr + "T12:00:00");
+  const jourActuel = JOUR_MAP[targetDate.getDay()];
+  const today = toDateStr(new Date());
+
+  const { data: allHabits } = await supabase
+    .from("habits")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("actif", true) as any;
+
+  let todayHabits: any[] = (allHabits || []).filter((h: any) => {
+    if (h.frequence === "daily") return true;
+    if (h.frequence === "weekly" || h.frequence === "recurring") return h.jours?.includes(jourActuel);
+    if (h.frequence === "once") return true;
+    return false;
+  });
+
+  const { data: completions } = await supabase
+    .from("completions")
+    .select("habit_id")
+    .eq("date", dateStr) as any;
+
+  const completedIds: string[] = (completions || []).map((c: any) => c.habit_id);
+
+  if (dateStr <= today && completedIds.length > 0) {
+    const activeIds = new Set(todayHabits.map((h: any) => h.id));
+    const deletedCompletedIds = completedIds.filter((id) => !activeIds.has(id));
+    if (deletedCompletedIds.length > 0) {
+      const { data: deletedHabits } = await supabase
+        .from("habits")
+        .select("*")
+        .in("id", deletedCompletedIds) as any;
+      todayHabits = [...todayHabits, ...(deletedHabits || [])];
+    }
+  }
+
+  return todayHabits.map((h: any) => ({
+    ...h,
+    completed: completedIds.includes(h.id),
+  }));
+}
+
+export function useTodayHabits(selectedDate?: string) {
   const dateStr = selectedDate || toDateStr(new Date());
+  const queryClient = useQueryClient();
+
+  const { data: habits = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ["habits", dateStr],
+    queryFn: () => fetchTodayHabits(dateStr),
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  // setHabits kept for optimistic updates (direct mutation of query cache)
+  const setHabits: Dispatch<SetStateAction<Habit[]>> = useCallback(
+    (updater) => {
+      queryClient.setQueryData<Habit[]>(["habits", dateStr], (prev = []) => {
+        if (typeof updater === "function") return updater(prev);
+        return updater;
+      });
+    },
+    [queryClient, dateStr]
+  );
 
   const refresh = useCallback(async () => {
-    const targetDate = new Date(dateStr + "T12:00:00");
-    const jourActuel = JOUR_MAP[targetDate.getDay()];
-    const today = toDateStr(new Date());
-
-    const { data: allHabits } = await supabase
-      .from("habits")
-      .select("*")
-      .eq("user_id", "local_user")
-      .eq("actif", true) as any;
-
-    let todayHabits: any[] = (allHabits || []).filter((h: any) => {
-      if (h.frequence === "daily") return true;
-      if (h.frequence === "weekly" || h.frequence === "recurring") return h.jours?.includes(jourActuel);
-      if (h.frequence === "once") return true;
-      return false;
-    });
-
-    const { data: completions } = await supabase
-      .from("completions")
-      .select("habit_id")
-      .eq("date", dateStr) as any;
-
-    const completedIds: string[] = (completions || []).map((c: any) => c.habit_id);
-
-    // Pour les dates passées/actuelles, inclure aussi les habitudes supprimées qui ont été complétées ce jour-là
-    if (dateStr <= today && completedIds.length > 0) {
-      const activeIds = new Set(todayHabits.map((h: any) => h.id));
-      const deletedCompletedIds = completedIds.filter((id) => !activeIds.has(id));
-      if (deletedCompletedIds.length > 0) {
-        const { data: deletedHabits } = await supabase
-          .from("habits")
-          .select("*")
-          .in("id", deletedCompletedIds) as any;
-        todayHabits = [...todayHabits, ...(deletedHabits || [])];
-      }
-    }
-
-    setHabits(
-      todayHabits.map((h: any) => ({
-        ...h,
-        completed: completedIds.includes(h.id),
-      }))
-    );
-    setLoading(false);
-  }, [dateStr]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+    await refetch();
+  }, [refetch]);
 
   return { habits, loading, refresh, setHabits };
 }
+
+// --------------- useCompleteHabit (unchanged pattern + RQ invalidation) ----------------
 
 export function useCompleteHabit(
   onRefresh: () => void,
@@ -114,7 +142,10 @@ export function useCompleteHabit(
   selectedDate?: string,
   setProfile?: Dispatch<SetStateAction<UserProfile | null>>
 ) {
+  const queryClient = useQueryClient();
+
   const complete = useCallback(async (habitId: string, xpEstime?: number) => {
+    const userId = await getAuthUserId();
     const dateStr = selectedDate || toDateStr(new Date());
 
     // Optimistic update habits
@@ -143,20 +174,29 @@ export function useCompleteHabit(
         if (error) throw error;
       }
 
-      // Update XP + niveau in Supabase
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const { data: profileData } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+        const profileQuery = supabase.from("user_profile").select("xp_total");
+        const profileQb = userId === "local_user"
+          ? profileQuery.eq("id", "local_user")
+          : profileQuery.eq("auth_id", userId);
+        const { data: profileData } = await profileQb.maybeSingle() as any;
         const newXp = (profileData?.xp_total || 0) + habit.xp_estime;
         const newNiveau = Math.floor(newXp / 100) + 1;
-        await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+        const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any);
+        if (userId === "local_user") {
+          await updateQ.eq("id", "local_user");
+        } else {
+          await updateQ.eq("auth_id", userId);
+        }
       }
 
-      await updateStreak();
+      await updateStreak(userId);
       localStorage.removeItem("lokyn_jours_inactif");
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       onRefresh();
     } catch {
-      // Rollback optimistic updates
+      // Rollback
       setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: false } : h));
       if (setProfile && xpEstime !== undefined) {
         setProfile((prev) => {
@@ -167,15 +207,14 @@ export function useCompleteHabit(
         });
       }
     }
-  }, [onRefresh, setHabits, selectedDate, setProfile]);
+  }, [onRefresh, setHabits, selectedDate, setProfile, queryClient]);
 
   const uncomplete = useCallback(async (habitId: string, xpEstime?: number) => {
+    const userId = await getAuthUserId();
     const dateStr = selectedDate || toDateStr(new Date());
 
-    // Optimistic update habits
     setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: false } : h));
 
-    // Optimistic update profile XP (subtract)
     if (setProfile && xpEstime !== undefined) {
       setProfile((prev) => {
         if (!prev) return prev;
@@ -198,20 +237,28 @@ export function useCompleteHabit(
       const { error } = await supabase.from("completions").delete().eq("habit_id", habitId).eq("date", dateStr);
       if (error) throw error;
 
-      // Subtract XP in Supabase
       const { data: habit } = await supabase.from("habits").select("xp_estime").eq("id", habitId).maybeSingle() as any;
       if (habit) {
-        const { data: profileData } = await supabase.from("user_profile").select("xp_total").eq("id", "local_user").maybeSingle() as any;
+        const profileQuery = supabase.from("user_profile").select("xp_total");
+        const profileQb = userId === "local_user"
+          ? profileQuery.eq("id", "local_user")
+          : profileQuery.eq("auth_id", userId);
+        const { data: profileData } = await profileQb.maybeSingle() as any;
         const newXp = Math.max(0, (profileData?.xp_total || 0) - habit.xp_estime);
         const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
-        await supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any).eq("id", "local_user");
+        const updateQ = supabase.from("user_profile").update({ xp_total: newXp, niveau: newNiveau } as any);
+        if (userId === "local_user") {
+          await updateQ.eq("id", "local_user");
+        } else {
+          await updateQ.eq("auth_id", userId);
+        }
       }
 
-      await updateStreak();
+      await updateStreak(userId);
       localStorage.removeItem("lokyn_jours_inactif");
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       onRefresh();
     } catch {
-      // Rollback optimistic updates
       setHabits((prev) => prev.map((h) => h.id === habitId ? { ...h, completed: true } : h));
       if (setProfile && xpEstime !== undefined) {
         setProfile((prev) => {
@@ -222,22 +269,27 @@ export function useCompleteHabit(
         });
       }
     }
-  }, [onRefresh, setHabits, selectedDate, setProfile]);
+  }, [onRefresh, setHabits, selectedDate, setProfile, queryClient]);
 
   return { complete, uncomplete };
 }
 
-export async function updateStreak() {
+// --------------- updateStreak (dynamic userId) ----------------
+
+export async function updateStreak(userId?: string) {
+  const uid = userId ?? await getAuthUserId();
+
   const { data: completions } = await supabase
     .from("completions")
     .select("date, habit_id")
     .order("date", { ascending: false }) as any;
 
-  // Fetch ALL habits (including inactive) to check historical scheduling
-  const { data: allHabits } = await supabase
+  const habitsQuery = supabase
     .from("habits")
-    .select("id, frequence, jours, date_creation")
-    .eq("user_id", "local_user") as any;
+    .select("id, frequence, jours, date_creation");
+  const { data: allHabits } = await (uid === "local_user"
+    ? habitsQuery.eq("user_id", uid)
+    : habitsQuery.eq("user_id", uid)) as any;
 
   const allRecurring = (allHabits || []).filter((h: any) =>
     h.frequence === "daily" || h.frequence === "recurring"
@@ -253,7 +305,6 @@ export async function updateStreak() {
     const ds = toDateStr(d);
     const jourLabel = JOUR_MAP[d.getDay()];
 
-    // Only count habits that existed on this day and were scheduled
     const habitsForDay = allRecurring.filter((h: any) => {
       const created = (h.date_creation || "").slice(0, 10);
       if (created > ds) return false;
@@ -274,28 +325,31 @@ export async function updateStreak() {
     }
   }
 
-  const { data: profile } = await supabase
-    .from("user_profile")
-    .select("streak_record")
-    .eq("id", "local_user")
-    .maybeSingle() as any;
+  const profileQuery = supabase.from("user_profile").select("streak_record");
+  const { data: profile } = await (uid === "local_user"
+    ? profileQuery.eq("id", "local_user")
+    : profileQuery.eq("auth_id", uid)).maybeSingle() as any;
 
-  await supabase
-    .from("user_profile")
-    .update({
-      streak_actuel: streak,
-      streak_record: Math.max(streak, profile?.streak_record || 0),
-    } as any)
-    .eq("id", "local_user");
+  const updateQ = supabase.from("user_profile").update({
+    streak_actuel: streak,
+    streak_record: Math.max(streak, profile?.streak_record || 0),
+  } as any);
+  if (uid === "local_user") {
+    await updateQ.eq("id", "local_user");
+  } else {
+    await updateQ.eq("auth_id", uid);
+  }
 }
 
-// Singleton guard — applyXpDecay runs only once per session
+// --------------- applyXpDecay (dynamic userId) ----------------
+
 let decayApplied = false;
 
 export async function applyXpDecay() {
   if (decayApplied) return;
   decayApplied = true;
 
+  const uid = await getAuthUserId();
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
 
@@ -310,11 +364,10 @@ export async function applyXpDecay() {
     .select("date")
     .in("date", last7) as any;
 
-  const { data: profile } = await supabase
-    .from("user_profile")
-    .select("xp_total, niveau, last_decay_date")
-    .eq("id", "local_user")
-    .maybeSingle() as any;
+  const profileQuery = supabase.from("user_profile").select("xp_total, niveau, last_decay_date");
+  const { data: profile } = await (uid === "local_user"
+    ? profileQuery.eq("id", "local_user")
+    : profileQuery.eq("auth_id", uid)).maybeSingle() as any;
 
   if (!profile) return;
   if (profile.last_decay_date === todayStr) return;
@@ -324,9 +377,7 @@ export async function applyXpDecay() {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const ds = d.toISOString().split("T")[0];
-    const hasActivity = (completions || []).some(
-      (c: any) => c.date === ds
-    );
+    const hasActivity = (completions || []).some((c: any) => c.date === ds);
     if (!hasActivity) inactiveDays++;
     else break;
   }
@@ -341,83 +392,82 @@ export async function applyXpDecay() {
   const newXp = Math.max(0, (profile.xp_total || 0) - decay);
   const newNiveau = Math.max(1, Math.floor(newXp / 100) + 1);
 
-  await supabase
-    .from("user_profile")
-    .update({
-      xp_total: newXp,
-      niveau: newNiveau,
-      last_decay_date: todayStr,
-    } as any)
-    .eq("id", "local_user");
+  const updateQ = supabase.from("user_profile").update({
+    xp_total: newXp,
+    niveau: newNiveau,
+    last_decay_date: todayStr,
+  } as any);
+  if (uid === "local_user") {
+    await updateQ.eq("id", "local_user");
+  } else {
+    await updateQ.eq("auth_id", uid);
+  }
+}
+
+// --------------- useUserProfile (React Query) ----------------
+
+async function fetchUserProfile(): Promise<UserProfile | null> {
+  const uid = await getAuthUserId();
+  const query = supabase.from("user_profile").select("*");
+  const { data } = await (uid === "local_user"
+    ? query.eq("id", "local_user")
+    : query.eq("auth_id", uid)).maybeSingle() as any;
+  return data ?? null;
 }
 
 export function useUserProfile() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: profile = null, refetch } = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      await applyXpDecay();
+      return fetchUserProfile();
+    },
+    staleTime: 10000,
+  });
+
+  const setProfile: Dispatch<SetStateAction<UserProfile | null>> = useCallback(
+    (updater) => {
+      queryClient.setQueryData<UserProfile | null>(["profile"], (prev = null) => {
+        if (typeof updater === "function") return updater(prev);
+        return updater;
+      });
+    },
+    [queryClient]
+  );
 
   const refresh = useCallback(async () => {
-    const { data } = await supabase
-      .from("user_profile")
-      .select("*")
-      .eq("id", "local_user")
-      .maybeSingle() as any;
-    setProfile(data);
-  }, []);
-
-  useEffect(() => {
-    applyXpDecay().then(() => refresh());
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+    await refetch();
+  }, [refetch]);
 
   return { profile, refresh, setProfile };
 }
 
+// --------------- useHomeStats ----------------
+
 export function useHomeStats(habits: Habit[]) {
-  const [stats, setStats] = useState({ energie: 0, discipline: 0, moral: 0 });
-
-  useEffect(() => {
-    async function calc() {
-      const total = habits.length || 1;
-      const done = habits.filter((h) => h.completed).length;
-      const discipline = Math.round((done / total) * 100);
-
-      const energyHabits = habits.filter((h) => ["sport", "nutrition", "Sport", "Nutrition"].includes(h.categorie));
-      const energyDone = energyHabits.filter((h) => h.completed).length;
-      const energie = energyHabits.length ? Math.round((energyDone / energyHabits.length) * 100) : discipline;
-
-      const { data: profile } = await supabase
-        .from("user_profile")
-        .select("streak_actuel")
-        .eq("id", "local_user")
-        .maybeSingle() as any;
-      const moral = Math.min((profile?.streak_actuel || 0) * 10, 100);
-
-      setStats({ energie, discipline, moral });
-    }
-    calc();
-  }, [habits]);
-
-  return stats;
+  return { energie: 0, discipline: 0, moral: 0 };
 }
 
-export function useDaysWithActivity(weekDates: string[]) {
-  const [activeDates, setActiveDates] = useState<string[]>([]);
+// --------------- useDaysWithActivity ----------------
 
-  useEffect(() => {
-    async function fetch() {
+export function useDaysWithActivity(weekDates: string[]) {
+  const { data: activeDates = [] } = useQuery({
+    queryKey: ["activity", weekDates.join(",")],
+    queryFn: async () => {
       const { data } = await supabase
         .from("completions")
         .select("date")
         .in("date", weekDates) as any;
-      setActiveDates([...new Set((data || []).map((c: any) => c.date))] as string[]);
-    }
-    fetch();
-  }, [weekDates.join(",")]);
-
+      return [...new Set((data || []).map((c: any) => c.date))] as string[];
+    },
+    staleTime: 30000,
+  });
   return activeDates;
 }
+
+// --------------- createHabit ----------------
 
 export async function createHabit(formData: {
   nom: string;
@@ -429,8 +479,9 @@ export async function createHabit(formData: {
   preuve_requise: boolean;
   xp_estime: number;
 }) {
+  const uid = await getAuthUserId();
   const { error } = await supabase.from("habits").insert({
-    user_id: "local_user",
+    user_id: uid,
     ...formData,
   } as any);
 

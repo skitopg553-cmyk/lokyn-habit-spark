@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import lokynNeutre from "@/assets/lokyn-neutre.png";
+import { useAuth } from "@/contexts/AuthContext";
 
 const objectifs = [
   { id: "sport", label: "💪 Muscu / Sport" },
@@ -17,6 +18,7 @@ const OnboardingPage = () => {
   const [prenom, setPrenom] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const toggleObjectif = (id: string) => {
     setSelected(prev =>
@@ -27,11 +29,14 @@ const OnboardingPage = () => {
   };
 
   const handleFinish = async () => {
-    await supabase
+    const q = supabase
       .from("user_profile")
-      .update({ prenom: prenom || "Toi", objectifs: selected } as any)
-      .eq("id", "local_user");
-    localStorage.setItem("onboarding_done", "true");
+      .update({ prenom: prenom || "Toi", objectifs: selected } as any) as any;
+    if (user?.id) {
+      await q.eq("auth_id", user.id);
+    } else {
+      await q.eq("id", "local_user");
+    }
     navigate("/home");
   };
 
@@ -108,11 +113,10 @@ const OnboardingPage = () => {
               <button
                 key={obj.id}
                 onClick={() => toggleObjectif(obj.id)}
-                className={`p-4 rounded-2xl text-left font-bold text-sm transition-all active:scale-95 border-2 ${
-                  selected.includes(obj.id)
-                    ? "bg-primary/20 border-primary text-primary"
-                    : "bg-card border-white/5 text-foreground"
-                }`}
+                className={`p-4 rounded-2xl text-left font-bold text-sm transition-all active:scale-95 border-2 ${selected.includes(obj.id)
+                  ? "bg-primary/20 border-primary text-primary"
+                  : "bg-card border-white/5 text-foreground"
+                  }`}
                 style={{ animation: `slide-up-fade 400ms ease-out ${i * 60}ms both` }}
               >
                 {obj.label}
@@ -158,10 +162,9 @@ const OnboardingPage = () => {
 
       {/* Dots navigation */}
       <div className="flex gap-2 mt-6">
-        {[0,1,2,3].map(i => (
-          <div key={i} className={`rounded-full transition-all duration-300 ${
-            slide === i ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-white/20"
-          }`} />
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className={`rounded-full transition-all duration-300 ${slide === i ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-white/20"
+            }`} />
         ))}
       </div>
     </div>
