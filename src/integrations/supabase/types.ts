@@ -20,6 +20,7 @@ export type Database = {
           habit_id: string
           id: string
           preuve_url: string | null
+          user_id: string | null
           validated_at: string | null
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           habit_id: string
           id?: string
           preuve_url?: string | null
+          user_id?: string | null
           validated_at?: string | null
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           habit_id?: string
           id?: string
           preuve_url?: string | null
+          user_id?: string | null
           validated_at?: string | null
         }
         Relationships: [
@@ -93,6 +96,8 @@ export type Database = {
       }
       user_profile: {
         Row: {
+          auth_id: string | null
+          created_at: string | null
           id: string
           last_decay_date: string | null
           niveau: number | null
@@ -103,6 +108,8 @@ export type Database = {
           xp_total: number | null
         }
         Insert: {
+          auth_id?: string | null
+          created_at?: string | null
           id?: string
           last_decay_date?: string | null
           niveau?: number | null
@@ -113,6 +120,8 @@ export type Database = {
           xp_total?: number | null
         }
         Update: {
+          auth_id?: string | null
+          created_at?: string | null
           id?: string
           last_decay_date?: string | null
           niveau?: number | null
